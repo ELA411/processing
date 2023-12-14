@@ -1,5 +1,25 @@
 % Author: Carl Larsson
-%
+% Description: performs all processing of EEG and EMG data aswell as classifying the data
+% Use: run when 1 window (250ms) of EEG and EMG data is available
+%========================================================================================================
+% Inputs
+% eeg_data: 1 window (250ms) of EEG data 
+% emg_data: 1 window (250ms) of EMG data 
+% W: the calculated CSP W matrix
+% eeg_classifier: the trained EEG classifier (cross validated model)
+% emg_classifier: the trained EMG classifier (cross validated model)
+% n_eeg, d_eeg: EEG butterworth highpass filter parameters
+% notchFilt_50_eeg: EEG 50Hz notch filter
+% notchFilt_100_eeg: EEG 100Hz notch filter
+% n_emg, d_emg: EMG bandpass filter parameters
+% notchFilt_50_emg: EMG 50Hz notch filter
+% notchFilt_100_emg: EMG 100Hz notch filter
+% notchFilt_150_emg: EMG 150Hz notch filter
+%========================================================================================================
+% Outputs
+% eeg_label: the classification label of the EEG data/window
+% emg_label: the classification label of the EMG data/window
+%========================================================================================================
 
 function [eeg_label,emg_label] = real_time_processing(eeg_data, emg_data, W, eeg_classifier, emg_classifier, n_eeg, d_eeg, notchFilt_50_eeg, notchFilt_100_eeg, n_emg, d_emg, notchFilt_50_emg, notchFilt_100_emg, notchFilt_150_emg)
 
@@ -37,7 +57,7 @@ emg_data = notchFilt_150_emg(emg_data);
 
 %--------------------------------------------------------------------------------------------------------
 % EEG Feature Extraction
-eeg_data = log(var(eeg_data));
+eeg_data = log(var(eeg_data)); % Log variance
 %--------------------------------------------------------------------------------------------------------
 
 %--------------------------------------------------------------------------------------------------------
