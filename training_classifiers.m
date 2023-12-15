@@ -1,44 +1,52 @@
 %% Code for training EEG and EMG classifiers
 % Author: Carl Larsson
-
+% Description: Performs all processing of EEG and EMG data including
+% training of classifier and evaluation of trained model
+% Use: Alter the search paths and files to the desired paths and files, change eeg_fs and
+% emg_fs in the "Load data" section to the sample rate of the EEG and EMG
+%% Clear variables and close figures
 clear all
 close all
-% Load data
-
-raw_eeg_data = load("data_sets\eeg_with_electrodes.txt");
+%% Load data
+raw_eeg_data = load("data_sets\eeg_2023-12-15.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
 eeg_fs=200; % EEG sample rate
-raw_emg_data = load("data_sets\emg_1_channel.txt");
+raw_emg_data = load("data_sets\emg_2023-12-15.txt"); % EMG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
 emg_fs=1000; % EMG sample rate
-% Display data lost
+%% Display data lost
+%------------------------------------------------------------------------------------------------
 % EEG
-
-fprintf("=======================================================================================")
+fprintf("=======================================================================================\n")
 data_lost = 0;
-expected_data = length(raw_eeg_data);
-for i = 2:length(raw_eeg_data)
-    if raw_eeg_data(i,1) ~= mod(raw_eeg_data(i-1,1) + 1, 200)
+last_last_id = raw_eeg_data(1,6);
+last_id = raw_eeg_data(2,6);
+for i = 3:length(raw_eeg_data)
+    if (raw_eeg_data(i,6) ~= last_id) && (last_id ~= last_last_id) % Duplicate half lost
         data_lost = data_lost + 1;
+    elseif raw_eeg_data(i,6) == last_id % Duplicate
+    elseif raw_eeg_data(i,6) == 100 + mod((last_id + 1) - 100, 100) % Next package ID is previous + 1
+    else
+        data_lost = data_lost + 2; % Package ID skipped, a duplicate pair is lost
     end
+    last_last_id = last_id;
+    last_id = raw_eeg_data(i,6);
 end
-disp(['EEG Data lost: ', num2str((data_lost/expected_data)*100,'%.2f'),'%']);
-%% 
-% EMG
+disp(['EEG Data lost: ', num2str(data_lost)]);
 
+%------------------------------------------------------------------------------------------------
+% EMG
 data_lost = 0;
-[expected_data, ~] = size(raw_emg_data);
-for i = 2:expected_data
+for i = 2:length(raw_emg_data)
     % If next package doesn't have last package ID + 1, then a package has been lost
     % EMG package ID is mod 1000
-    if raw_emg_data(i,3) ~= mod(raw_emg_data(i-1,3) + 1, 1000)
+    if raw_emg_data(i,4) ~= mod(raw_emg_data(i-1,4) + 1, 1000)
         data_lost = data_lost + 1;
     end
 end
-disp(['EMG Data lost: ', num2str((data_lost/expected_data)*100,'%.2f'),'%']);
-fprintf("=======================================================================================")
-% Display data quality
+disp(['EMG Data lost: ', num2str(data_lost)]);
+%% Display data quality 
+%------------------------------------------------------------------------------------------------
 % EEG
-
-fprintf("=======================================================================================")
+fprintf("=======================================================================================\n")
 % Extract signal-to-noise (SNR), signal to noise and distortion ratio (SINAD), total harmonic distortion (THD).
 sFE = signalTimeFeatureExtractor(SampleRate=eeg_fs, SNR = true, SINAD = true, THD = true);
 fprintf("EEG data quality")
@@ -47,29 +55,28 @@ fprintf('\nChannel 1:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',eeg_quality(:,1,1),e
 fprintf('\nChannel 2:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',eeg_quality(:,1,2),eeg_quality(:,2,2), eeg_quality(:,3,2));
 fprintf('\nChannel 3:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',eeg_quality(:,1,3),eeg_quality(:,2,3), eeg_quality(:,3,3));
 fprintf('\nChannel 4:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',eeg_quality(:,1,4),eeg_quality(:,2,4), eeg_quality(:,3,4));
-%% 
+%------------------------------------------------------------------------------------------------
 % EMG
-
 fprintf("EMG data quality")
-emg_quality = extract(sFE,raw_emg_data(:, 1));
+emg_quality = extract(sFE,raw_emg_data(:, 1:2));
 fprintf('\nChannel 1:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',emg_quality(:,1,1),emg_quality(:,2,1), emg_quality(:,3,1));
-fprintf("=======================================================================================")
-% Visualize signal
+fprintf('\nChannel 2:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',emg_quality(:,1,2),emg_quality(:,2,2), emg_quality(:,3,2));
+%% Visualize signal
+%------------------------------------------------------------------------------------------------
 % EEG
-
 % Plot all EEG channels
 figure
 EEG_plot_handle = tiledlayout(4,1);
-channel1_plot_handle = nexttile;
+nexttile;
 plot(raw_eeg_data(:,1))
 title('Channel 1')
-channel2_plot_handle = nexttile;
+nexttile;
 plot(raw_eeg_data(:,2))
 title('Channel 2')
-channel3_plot_handle = nexttile;
+nexttile;
 plot(raw_eeg_data(:,3))
 title('Channel 3')
-channel4_plot_handle = nexttile;
+nexttile;
 plot(raw_eeg_data(:,4))
 title('Channel 4')
 
@@ -77,35 +84,35 @@ title('Channel 4')
 title(EEG_plot_handle,'Raw EEG data')
 xlabel(EEG_plot_handle,'Time (s)')
 ylabel(EEG_plot_handle,'Voltage (v)')
-%% 
+%------------------------------------------------------------------------------------------------
 % EMG
-
 % Plot all EMG channels
 figure
-EMG_plot_handle = tiledlayout(1,1);
-channel1_plot_handle = nexttile;
+EMG_plot_handle = tiledlayout(2,1);
+nexttile;
 plot(raw_emg_data(:,1))
 title('Channel 1')
+nexttile;
+plot(raw_emg_data(:,2))
+title('Channel 2')
 
 % Add title etc
 title(EMG_plot_handle,'Raw EMG data')
 xlabel(EMG_plot_handle,'Time (s)')
 ylabel(EMG_plot_handle,'Voltage (v)')
-fprintf("=======================================================================================")
-% Preprocessing
+%% Preprocessing
+%------------------------------------------------------------------------------------------------
 % EEG
-% 
-% Artifact removal: <https://se.mathworks.com/matlabcentral/fileexchange/55413-wica-data-varargin 
-% https://se.mathworks.com/matlabcentral/fileexchange/55413-wica-data-varargin> 
-% 
-% Dependency: <https://github.com/biotrump/RADICAL-matlab https://github.com/biotrump/RADICAL-matlab> 
-% 
-% Dependency: <https://research.ics.aalto.fi/ica/fastica/ https://research.ics.aalto.fi/ica/fastica/> 
-% 
-% CSP filtering: <https://se.mathworks.com/matlabcentral/fileexchange/72204-common-spatial-patterns-csp 
-% https://se.mathworks.com/matlabcentral/fileexchange/72204-common-spatial-patterns-csp> 
 
-%--------------------------------------------------------------------------------------------------------
+%------------------------------------------------------------------------------------------------
+% Artifact removal: https://se.mathworks.com/matlabcentral/fileexchange/55413-wica-data-varargin 
+% 
+% Dependency: https://github.com/biotrump/RADICAL-matlab https://github.com/biotrump/RADICAL-matlab> 
+% 
+% Dependency: https://research.ics.aalto.fi/ica/fastica/ https://research.ics.aalto.fi/ica/fastica/> 
+% 
+% CSP filtering: https://se.mathworks.com/matlabcentral/fileexchange/72204-common-spatial-patterns-csp 
+%------------------------------------------------------------------------------------------------
 
 %{
 % Median filtering of the baseline wandering which usually is of a frequency of about 0.5Hz, but can be higher with movement.
@@ -154,43 +161,42 @@ class_1_data = filtered_eeg_data(label_1, :); % Class 1
 % Save W matrix for real time
 save("saved_variables\W_matrix.mat","W");
 % CSP filter data
-filtered_eeg_data = W'*transpose(filtered_eeg_data);
+filtered_eeg_data = transpose(W'*transpose(filtered_eeg_data));
 
 
 % 1. 2. 3. 4. channel 1,2,3,4
 % 5. labels
 % 6. package ID
 % 7. timestamp
-filtered_eeg_data = [transpose(filtered_eeg_data) raw_eeg_data(:,5:7)];
+filtered_eeg_data = [filtered_eeg_data raw_eeg_data(:,5:7)];
 
-%--------------------------------------------------------------------------------------------------------
+%------------------------------------------------------------------------------------------------
 
-fprintf("=======================================================================================")
 % Plot all EEG channels
 figure
 EEG_filtered_plot_handle = tiledlayout("vertical");
-channel1_filtered_plot_handle = nexttile;
+nexttile;
 plot(raw_eeg_data(:,1), 'r--')
 hold on
 plot(filtered_eeg_data(:,1), 'g')
 hold off
 title('Channel 1')
 legend('Raw','Filtered')
-channel2_filtered_plot_handle = nexttile;
+nexttile;
 plot(raw_eeg_data(:,2), 'r--')
 hold on
 plot(filtered_eeg_data(:,2), 'g')
 hold off
 title('Channel 2')
 legend('Raw','Filtered')
-channel3_filtered_plot_handle = nexttile;
+nexttile;
 plot(raw_eeg_data(:,3), 'r--')
 hold on
 plot(filtered_eeg_data(:,3), 'g')
 hold off
 title('Channel 3')
 legend('Raw','Filtered')
-channel4_filtered_plot_handle = nexttile;
+nexttile;
 plot(raw_eeg_data(:,4), 'r--')
 hold on
 plot(filtered_eeg_data(:,4), 'g')
@@ -202,13 +208,13 @@ legend('Raw','Filtered')
 title(EEG_filtered_plot_handle,'Raw vs Filtered EEG data')
 xlabel(EEG_filtered_plot_handle,'Time (s)')
 ylabel(EEG_filtered_plot_handle,'Voltage (v)')
-%% 
+%------------------------------------------------------------------------------------------------
 % EMG
 
 % Removal of the 0Hz(the DC offset) and high frequency noise.
 % 20–500Hz fourth-order Butterworth bandpass filter.
 [n,d] = butter(4,[20 499]/(emg_fs/2),"bandpass");
-filtered_emg_data = filter(n,d,raw_emg_data(:,1));
+filtered_emg_data = filter(n,d,raw_emg_data(:,1:2));
 
 % Removal of 50Hz noise and all of it's harmonics up to 150Hz. 
 % The noise is caused by magnetic fields generated by powerlines.
@@ -223,33 +229,39 @@ for k = 1:3
     filtered_emg_data = notchFilt(filtered_emg_data); 
 end
 
-% 1. channel 1
-% 2. labels
-% 3. package ID
-% 4. time stamp
-filtered_emg_data = [filtered_emg_data raw_emg_data(:,2:4)];
+% 1. 2. channel 1, 2
+% 3. labels
+% 4. package ID
+% 5. time stamp
+filtered_emg_data = [filtered_emg_data raw_emg_data(:,3:5)];
 
-%--------------------------------------------------------------------------------------------------------
+%------------------------------------------------------------------------------------------------
 
 % Plot all EMG channels
 figure
-EMG_plot_handle = tiledlayout(1,1);
-channel1_filtered_plot_handle = nexttile;
+EMG_plot_handle = tiledlayout(2,1);
+nexttile;
 plot(raw_emg_data(:,1),'r--')
 hold on
 plot(filtered_emg_data(:,1),'g')
 hold off
 title('Channel 1')
 legend('Raw','Filtered')
+nexttile;
+plot(raw_emg_data(:,2),'r--')
+hold on
+plot(filtered_emg_data(:,2),'g')
+hold off
+title('Channel 2')
+legend('Raw','Filtered')
 
 % Add title etc
 title(EMG_plot_handle,'Raw vs Filtered EMG data')
 xlabel(EMG_plot_handle,'Time (s)')
 ylabel(EMG_plot_handle,'Voltage (v)')
-fprintf("=======================================================================================")
-% Segmentation
+%% Segmentation
+%------------------------------------------------------------------------------------------------
 % EEG
-
 % Window EEG signal into 250ms windows with 50ms overlap
 window_size = 0.250;                        % window size s
 overlap = 0.050;                            % window overlap s
@@ -258,15 +270,16 @@ overlap = 0.050;                            % window overlap s
 [eeg_3, ~] = buffer(filtered_eeg_data(:,3),window_size*eeg_fs, overlap*eeg_fs, 'nodelay');
 [eeg_4, ~] = buffer(filtered_eeg_data(:,4),window_size*eeg_fs, overlap*eeg_fs, 'nodelay');
 [eeg_label, ~] = buffer(filtered_eeg_data(:,5),window_size*eeg_fs, overlap*eeg_fs, 'nodelay');
-%% 
+%------------------------------------------------------------------------------------------------
 % EMG
-
 % Window EMG signal into 250ms windows with 50ms overlap
 window_size = 0.250;                        % window size s
 overlap = 0.050;                            % window overlap s
 [emg_1, ~] = buffer(filtered_emg_data(:,1),window_size*emg_fs, overlap*emg_fs, "nodelay");
-[emg_label, ~] = buffer(filtered_emg_data(:,2),window_size*emg_fs, overlap*emg_fs, "nodelay");
-% Feature extraction
+[emg_2, ~] = buffer(filtered_emg_data(:,2),window_size*emg_fs, overlap*emg_fs, "nodelay");
+[emg_label, ~] = buffer(filtered_emg_data(:,3),window_size*emg_fs, overlap*emg_fs, "nodelay");
+%% Feature extraction
+%------------------------------------------------------------------------------------------------
 % EEG
 
 % CSP
@@ -357,11 +370,12 @@ end
 % 4 channel 4 features
 % 5 labels
 eeg_features = [eeg_1_features eeg_2_features eeg_3_features eeg_4_features eeg_label_window];
-%% 
+%------------------------------------------------------------------------------------------------
 % EMG
-% 
-% Feature extraction: <https://se.mathworks.com/matlabcentral/fileexchange/71514-emg-feature-extraction-toolbox 
-% https://se.mathworks.com/matlabcentral/fileexchange/71514-emg-feature-extraction-toolbox> 
+
+%------------------------------------------------------------------------------------------------
+% Feature extraction: https://se.mathworks.com/matlabcentral/fileexchange/71514-emg-feature-extraction-toolbox
+%------------------------------------------------------------------------------------------------
 
 % Channel 1
 % Extract features from each window
@@ -378,6 +392,19 @@ for i=1:col_size
     emg_1_features(i,:) = [f_mav, f_wl, f_zc, f_ssc, f_ar];
 end
 
+[~, col_size] = size(emg_2);
+emg_2_features = zeros(col_size, 5); % Create matrix containing all extracted features from each window beforehand
+for i=1:col_size
+    f_mav = jfemg('mav', emg_2(:,i)); % Mean absolut value
+    f_wl = jfemg('wl', emg_2(:,i)); % Waveform length
+    f_zc = jfemg('zc', emg_2(:,i)); % Zero crossing
+    f_ssc = jfemg('ssc', emg_2(:,i)); % Slope sign change
+    opts.order = 1; % Defines output dimension
+    f_ar = jfemg('ar', emg_2(:,i), opts); % Auto regressive
+
+    emg_2_features(i,:) = [f_mav, f_wl, f_zc, f_ssc, f_ar];
+end
+
 % Labels
 % Labels for each window is calculated as the majority class of that window
 [~, col_size] = size(emg_label);
@@ -387,24 +414,22 @@ for i=1:col_size
 end
 
 % 1:5 channel 1 features
-% 6 labels
-emg_features = [emg_1_features emg_label_window];
-% Train classifier
-% Oversampling: <https://se.mathworks.com/matlabcentral/fileexchange/75401-synthetic-minority-over-sampling-technique-smote 
-% https://se.mathworks.com/matlabcentral/fileexchange/75401-synthetic-minority-over-sampling-technique-smote> 
+% 6:10 channel 2 features
+% 11 labels
+emg_features = [emg_1_features emg_2_features emg_label_window];
+%% Train classifier
+%------------------------------------------------------------------------------------------------
+% Oversampling: https://se.mathworks.com/matlabcentral/fileexchange/75401-synthetic-minority-over-sampling-technique-smote
 % 
-% Save and load models: <https://se.mathworks.com/matlabcentral/answers/264160-how-to-save-and-reuse-a-trained-neural-network 
-% https://se.mathworks.com/matlabcentral/answers/264160-how-to-save-and-reuse-a-trained-neural-network> 
+% Save and load models: https://se.mathworks.com/matlabcentral/answers/264160-how-to-save-and-reuse-a-trained-neural-network
 % 
-% Permutation test: <https://www.jmlr.org/papers/volume11/ojala10a/ojala10a.pdf 
-% https://www.jmlr.org/papers/volume11/ojala10a/ojala10a.pdf>
+% Permutation test: https://www.jmlr.org/papers/volume11/ojala10a/ojala10a.pdf
 % 
-% Binomial test: <https://www.sciencedirect.com/science/article/pii/S2213158214000485 
-% https://www.sciencedirect.com/science/article/pii/S2213158214000485> 
-% 
-% EEG
+% Binomial test: https://www.sciencedirect.com/science/article/pii/S2213158214000485
+%------------------------------------------------------------------------------------------------
 
-fprintf("=======================================================================================")
+%------------------------------------------------------------------------------------------------
+% EEG
 % Fix class imbalance with Synthetic Minority Over-sampling Technique (SMOTE)
 [smote_data, smote_label, ~, ~] = smote(eeg_features(:, 1:4),[], 5, 'Class', eeg_features(:,end));
 balanced_eeg_data = [smote_data smote_label];
@@ -414,7 +439,7 @@ balanced_eeg_data = [smote_data smote_label];
 eeg_classifier = fitcsvm(balanced_eeg_data(:,1:4), balanced_eeg_data(:,end),"KernelFunction","rbf","CrossVal","on","KFold",5); % RBF SVM
 save("trained_classifiers\eeg_classifier.mat","eeg_classifier")
 
-fprintf("=======================================================================================")
+fprintf("=======================================================================================\n")
 % Accuracy
 % Accuracy for each fold
 formatSpec = '%.2f';
@@ -456,7 +481,7 @@ end
 % P value is the fraction of times that the shuffled predicted labels
 % performed better than actual predicted labels 
 p_value = (sum(permuted_accuracy >= actual_accuracy) + 1) / (num_permutations + 1);
-disp(['SVM permutation test 1 P-value :', num2str(p_value,2)])
+disp(['SVM permutation test 1 p-value :', num2str(p_value,2)])
 
 if p_value < 0.05
     disp('Classifier performance is statistically significant. Null hypothesis is rejected, the classifier performance is better than random chance.');
@@ -490,7 +515,7 @@ end
 % P value is the fraction of times that the classifier behaved better in random enviorment 
 % (aka fraction of time that a classifier with shuffled labels performed better than the original classifier)
 p_value = (sum(permuted_accuracy >= actual_accuracy) + 1) / (num_permutations + 1);
-disp(['SVM permutation test 2 P-value :', num2str(p_value,2)])
+disp(['SVM permutation test 2 p-value :', num2str(p_value,2)])
 
 if p_value < 0.05
     disp('Classifier performance is statistically significant. Null hypothesis is rejected, the classifier has found a true connection in the data.');
@@ -498,19 +523,38 @@ else
     disp('Classifier performance is not statistically significant. Null hypothesis is not rejected.');
 end
 %------------------------------------------------------------------------------------------------
-fprintf("=======================================================================================")
-%% 
-% EMG
+% Binomial test
+num_trials = numel(true_labels);  % Number of trials
+num_success = sum(true_labels == predicted_labels);  % Number of successful predictions
 
+% Hypothesized probability (e.g., chance level, 0.5 for a binary classifier)
+p_hypothesized = 0.5;
+
+% Perform binomial test
+p_value_binomial = binocdf(num_success - 1, num_trials, p_hypothesized, 'upper');
+
+disp(['SVM binomial test p-value :', num2str(p_value_binomial,2)])
+
+if p_value_binomial < 0.05
+    disp('Classifier performance is statistically significant. Null hypothesis is rejected, the classifier performs above chance.');
+else
+    disp('Classifier performance is not statistically significant. Null hypothesis is not rejected.');
+end
+%------------------------------------------------------------------------------------------------
+fprintf("=======================================================================================\n")
+
+%------------------------------------------------------------------------------------------------
+% EMG
+%------------------------------------------------------------------------------------------------
 % Fix class imbalance with Synthetic Minority Over-sampling Technique (SMOTE)
-[smote_data, smote_label, ~, ~] = smote(emg_features(:, 1:5),[], 5, 'Class', emg_features(:,end));
+[smote_data, smote_label, ~, ~] = smote(emg_features(:, 1:10),[], 5, 'Class', emg_features(:,end));
 balanced_emg_data = [smote_data smote_label];
 
 % Train classifier using 5 fold cross validation
-emg_classifier = fitcdiscr(balanced_emg_data(:,1:5), balanced_emg_data(:,end),"DiscrimType","linear","CrossVal","on","KFold",5); % LDA
+emg_classifier = fitcdiscr(balanced_emg_data(:,1:10), balanced_emg_data(:,end),"DiscrimType","linear","CrossVal","on","KFold",5); % LDA
 save("trained_classifiers\emg_classifier.mat","emg_classifier");
 
-fprintf("=======================================================================================")
+fprintf("=======================================================================================\n")
 % Accuracy
 % Accuracy for each fold
 formatSpec = '%.2f';
@@ -525,7 +569,7 @@ disp(['LDA 5th fold accuracy : ', num2str((1-accuracy_emg_fold(5))*100, formatSp
 disp(['LDA average accuracy : ', num2str((mean(1-accuracy_emg_fold))*100, formatSpec), '% (+-', num2str(std(1-accuracy_emg_fold)*100, formatSpec), '%)']);
 
 % Confusion matrix
-predicted = predict(emg_classifier.Trained{1}, balanced_emg_data(:,1:5));
+predicted = predict(emg_classifier.Trained{1}, balanced_emg_data(:,1:10));
 emg_confusion_matrix = confusionmat(balanced_emg_data(:,end), predicted);
 figure
 confusionchart(emg_confusion_matrix)
@@ -552,7 +596,7 @@ end
 % P value is the fraction of times that the shuffled predicted labels
 % performed better than actual predicted labels 
 p_value = (sum(permuted_accuracy >= actual_accuracy) + 1) / (num_permutations + 1);
-disp(['LDA permutation test P-value 1 :', num2str(p_value,2)])
+disp(['LDA permutation test p-value 1 :', num2str(p_value,2)])
 
 if p_value < 0.05
     disp('Classifier performance is statistically significant. Null hypothesis is rejected, the classifier performance is better than random chance.');
@@ -567,7 +611,7 @@ predicted_labels = predicted;
 % Calculate accuracy for original classifier
 actual_accuracy = sum(true_labels == predicted_labels,'all')/numel(predicted_labels);
 
-data_set = balanced_emg_data(:,1:5);
+data_set = balanced_emg_data(:,1:10);
 
 num_permutations = 10000;
 permuted_accuracy = zeros(1,num_permutations);
@@ -586,7 +630,7 @@ end
 % P value is the fraction of times that the classifier behaved better in random enviorment 
 % (aka fraction of time that a classifier with shuffled labels performed better than the original classifier)
 p_value = (sum(permuted_accuracy >= actual_accuracy) + 1) / (num_permutations + 1);
-disp(['LDA permutation test P-value 2 :', num2str(p_value,2)])
+disp(['LDA permutation test p-value 2 :', num2str(p_value,2)])
 
 if p_value < 0.05
     disp('Classifier performance is statistically significant. Null hypothesis is rejected, the classifier has found a true connection in the data.');
@@ -594,7 +638,4 @@ else
     disp('Classifier performance is not statistically significant. Null hypothesis is not rejected.');
 end
 %------------------------------------------------------------------------------------------------
-% Binomial test
-
-%------------------------------------------------------------------------------------------------
-fprintf("=======================================================================================")
+fprintf("=======================================================================================\n")

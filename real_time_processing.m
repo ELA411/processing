@@ -3,8 +3,8 @@
 % Use: run when 1 window (250ms) of EEG and EMG data is available
 %========================================================================================================
 % Inputs
-% eeg_data: 1 window (250ms) of EEG data 
-% emg_data: 1 window (250ms) of EMG data 
+% eeg_data: 1 window (250ms) of EEG data (format: matrix SxC, where S is samples and C is channels)
+% emg_data: 1 window (250ms) of EMG data (format: matrix SxC, where S is samples and C is channels)
 % W: the calculated CSP W matrix
 % eeg_classifier: the trained EEG classifier (cross validated model)
 % emg_classifier: the trained EMG classifier (cross validated model)
@@ -62,14 +62,23 @@ eeg_data = log(var(eeg_data)); % Log variance
 
 %--------------------------------------------------------------------------------------------------------
 % EMG Feature Extraction
-f_mav = jfemg('mav', emg_data); % Mean absolut value
-f_wl = jfemg('wl', emg_data); % Waveform length
-f_zc = jfemg('zc', emg_data); % Zero crossing
-f_ssc = jfemg('ssc', emg_data); % Slope sign change
+% Channel 1
+f_mav_1 = jfemg('mav', emg_data(:,1)); % Mean absolut value
+f_wl_1 = jfemg('wl', emg_data(:,1)); % Waveform length
+f_zc_1 = jfemg('zc', emg_data(:,1)); % Zero crossing
+f_ssc_1 = jfemg('ssc', emg_data(:,1)); % Slope sign change
 opts.order = 1; % Defines output dimension
-f_ar = jfemg('ar', emg_data, opts); % Auto regressive
+f_ar_1 = jfemg('ar', emg_data(:,1), opts); % Auto regressive
 
-emg_data = [f_mav, f_wl, f_zc, f_ssc, f_ar];
+% Channel 2
+f_mav_2 = jfemg('mav', emg_data(:,2)); % Mean absolut value
+f_wl_2 = jfemg('wl', emg_data(:,2)); % Waveform length
+f_zc_2 = jfemg('zc', emg_data(:,2)); % Zero crossing
+f_ssc_2 = jfemg('ssc', emg_data(:,2)); % Slope sign change
+opts.order = 1; % Defines output dimension
+f_ar_2 = jfemg('ar', emg_data(:,2), opts); % Auto regressive
+
+emg_data = [f_mav_1, f_wl_1, f_zc_1, f_ssc_1, f_ar_1, f_mav_2, f_wl_2, f_zc_2, f_ssc_2, f_ar_2];
 %--------------------------------------------------------------------------------------------------------
 
 %--------------------------------------------------------------------------------------------------------
