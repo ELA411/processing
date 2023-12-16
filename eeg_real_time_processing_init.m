@@ -1,7 +1,7 @@
 % Author: Carl Larsson
 % Description: Creates all filters necessary for real time processing of EEG
 % Use: should be run before "real time loop" to enable the use of the
-% function real_time_processing
+% function eeg_real_time_processing
 %========================================================================================================
 % Inputs
 % eeg_fs: the sampling frequency of the EEG signal in Hz
@@ -11,10 +11,6 @@
 % n_eeg, d_eeg: EEG butterworth highpass filter parameters
 % notchFilt_50_eeg: EEG 50Hz notch filter
 % notchFilt_100_eeg: EEG 100Hz notch filter
-% n_emg, d_emg: EMG bandpass filter parameters
-% notchFilt_50_emg: EMG 50Hz notch filter
-% notchFilt_100_emg: EMG 100Hz notch filter
-% notchFilt_150_emg: EMG 150Hz notch filter
 %========================================================================================================
 % Dependencies
 % Signal Processing Toolbox: https://se.mathworks.com/products/signal.html

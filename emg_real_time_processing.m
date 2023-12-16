@@ -19,6 +19,7 @@
 % EMG Feature Extraction Toolbox: https://se.mathworks.com/matlabcentral/fileexchange/71514-emg-feature-extraction-toolbox
 % Statistics and Machine Learning Toolbox: https://se.mathworks.com/products/statistics.html
 %========================================================================================================
+
 function [emg_label] = emg_real_time_processing(emg_data, emg_classifier, n_emg, d_emg, notchFilt_50_emg, notchFilt_100_emg, notchFilt_150_emg)
 
 %--------------------------------------------------------------------------------------------------------
