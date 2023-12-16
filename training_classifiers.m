@@ -21,9 +21,9 @@
 clear all
 close all
 %% Load data
-raw_eeg_data = load("data_sets\eeg_2023-12-15.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
+raw_eeg_data = load("data_sets\eeg_2023-12-16.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
 eeg_fs=200; % EEG sample rate
-raw_emg_data = load("data_sets\emg_2023-12-15.txt"); % EMG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
+raw_emg_data = load("data_sets\emg_2023-12-16.txt"); % EMG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
 emg_fs=1000; % EMG sample rate
 %% Display data lost
 %------------------------------------------------------------------------------------------------
@@ -553,7 +553,7 @@ else
 end
 %------------------------------------------------------------------------------------------------
 fprintf("=======================================================================================\n")
-
+%% Train classifier
 %------------------------------------------------------------------------------------------------
 % EMG
 %------------------------------------------------------------------------------------------------
@@ -562,7 +562,8 @@ fprintf("=======================================================================
 balanced_emg_data = [smote_data smote_label];
 
 % Train classifier using 5 fold cross validation
-emg_classifier = fitcdiscr(balanced_emg_data(:,1:10), balanced_emg_data(:,end),"DiscrimType","linear","CrossVal","on","KFold",5); % LDA
+% CHANGED TO 'pseudolinear' from 'linear' because one class had zero variance
+emg_classifier = fitcdiscr(balanced_emg_data(:,1:10), balanced_emg_data(:,end),"DiscrimType","pseudolinear","CrossVal","on","KFold",5); % LDA
 save("trained_classifiers\emg_classifier.mat","emg_classifier");
 
 fprintf("=======================================================================================\n")
@@ -628,10 +629,11 @@ permuted_accuracy = zeros(1,num_permutations);
 for k = 1:num_permutations
     % Shuffle the true labels and train classifier when labels no longer has a true connection to the data
     shuffled_true = true_labels(randperm(length(true_labels)));
-    perm_classifier = fitcdiscr(data_set, shuffled_true,"DiscrimType","linear","CrossVal","on","KFold",5); % LDA
+    % CHANGED TO 'pseudolinear' from 'linear' because one class had zero variance
+    perm_classifier = fitcdiscr(data_set, shuffled_true,"DiscrimType","pseudolinear","CrossVal","on","KFold",5); % LDA
 
     % CV accuracy
-    accuracy_shuffled = kfoldLoss(emg_classifier, 'Mode', 'individual', 'LossFun', 'classiferror');
+    accuracy_shuffled = kfoldLoss(perm_classifier, 'Mode', 'individual', 'LossFun', 'classiferror');
 
     % Calculate accuracy for classifier with shuffled labels
     permuted_accuracy(k) = mean(1-accuracy_shuffled);
