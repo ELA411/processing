@@ -1,6 +1,7 @@
 % Author: Carl Larsson
 % Description: performs all processing of EEG and EMG data aswell as classifying the data
-% Use: run when 1 window (250ms) of EEG and EMG data is available
+% Use: run when 1 window (250ms) of EEG and EMG data is available.
+% real_time_processing_init needs to be run before calling this function
 %========================================================================================================
 % Inputs
 % eeg_data: 1 window (250ms) of EEG data (format: matrix SxC, where S is samples and C is channels)
@@ -19,6 +20,15 @@
 % Outputs
 % eeg_label: the classification label of the EEG data/window
 % emg_label: the classification label of the EMG data/window
+%========================================================================================================
+% Dependencies
+% Signal Processing Toolbox: https://se.mathworks.com/products/signal.html
+% Wavelet Toolbox: https://se.mathworks.com/products/wavelet.html?s_tid=FX_PR_info
+% FastICA: https://research.ics.aalto.fi/ica/fastica/
+% wICA(data,varargin): https://se.mathworks.com/matlabcentral/fileexchange/55413-wica-data-varargin
+% Common Spatial Patterns (CSP): https://se.mathworks.com/matlabcentral/fileexchange/72204-common-spatial-patterns-csp
+% EMG Feature Extraction Toolbox: https://se.mathworks.com/matlabcentral/fileexchange/71514-emg-feature-extraction-toolbox
+% Statistics and Machine Learning Toolbox: https://se.mathworks.com/products/statistics.html
 %========================================================================================================
 
 function [eeg_label,emg_label] = real_time_processing(eeg_data, emg_data, W, eeg_classifier, emg_classifier, n_eeg, d_eeg, notchFilt_50_eeg, notchFilt_100_eeg, n_emg, d_emg, notchFilt_50_emg, notchFilt_100_emg, notchFilt_150_emg)

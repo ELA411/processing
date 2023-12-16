@@ -1,9 +1,22 @@
 %% Code for training EEG and EMG classifiers
+%========================================================================================================
 % Author: Carl Larsson
 % Description: Performs all processing of EEG and EMG data including
 % training of classifier and evaluation of trained model
 % Use: Alter the search paths and files to the desired paths and files, change eeg_fs and
 % emg_fs in the "Load data" section to the sample rate of the EEG and EMG
+%========================================================================================================
+% Dependencies
+% Matlab R2023b or later
+% Signal Processing Toolbox: https://se.mathworks.com/products/signal.html
+% Wavelet Toolbox: https://se.mathworks.com/products/wavelet.html?s_tid=FX_PR_info
+% FastICA: https://research.ics.aalto.fi/ica/fastica/
+% wICA(data,varargin): https://se.mathworks.com/matlabcentral/fileexchange/55413-wica-data-varargin
+% Common Spatial Patterns (CSP): https://se.mathworks.com/matlabcentral/fileexchange/72204-common-spatial-patterns-csp
+% EMG Feature Extraction Toolbox: https://se.mathworks.com/matlabcentral/fileexchange/71514-emg-feature-extraction-toolbox
+% Synthetic Minority Over-sampling Technique (SMOTE): https://se.mathworks.com/matlabcentral/fileexchange/75401-synthetic-minority-over-sampling-technique-smote
+% Statistics and Machine Learning Toolbox: https://se.mathworks.com/products/statistics.html
+%========================================================================================================
 %% Clear variables and close figures
 clear all
 close all
@@ -31,7 +44,6 @@ for i = 3:length(raw_eeg_data)
     last_id = raw_eeg_data(i,6);
 end
 disp(['EEG Data lost: ', num2str(data_lost)]);
-
 %------------------------------------------------------------------------------------------------
 % EMG
 data_lost = 0;
@@ -107,9 +119,9 @@ ylabel(EMG_plot_handle,'Voltage (v)')
 %------------------------------------------------------------------------------------------------
 % Artifact removal: https://se.mathworks.com/matlabcentral/fileexchange/55413-wica-data-varargin 
 % 
-% Dependency: https://github.com/biotrump/RADICAL-matlab https://github.com/biotrump/RADICAL-matlab> 
+% Dependency: https://github.com/biotrump/RADICAL-matlab
 % 
-% Dependency: https://research.ics.aalto.fi/ica/fastica/ https://research.ics.aalto.fi/ica/fastica/> 
+% Dependency: https://research.ics.aalto.fi/ica/fastica/
 % 
 % CSP filtering: https://se.mathworks.com/matlabcentral/fileexchange/72204-common-spatial-patterns-csp 
 %------------------------------------------------------------------------------------------------
@@ -461,7 +473,7 @@ confusionchart(eeg_confusion_matrix)
 
 % Statistical tests
 %------------------------------------------------------------------------------------------------
-% Permutation test (shuffle predicted labels)
+% Permutation test 1 (shuffle predicted labels)
 true_labels = balanced_eeg_data(:,end);
 predicted_labels = predicted;
 
@@ -489,12 +501,11 @@ else
     disp('Classifier performance is not statistically significant. Null hypothesis is not rejected.');
 end
 %------------------------------------------------------------------------------------------------
-% Permutation test (shuffle true labels)
+% Permutation test 2 (shuffle true labels)
 true_labels = balanced_eeg_data(:,end);
-predicted_labels = predicted;
 
 % Calculate accuracy for original classifier
-actual_accuracy = sum(true_labels == predicted_labels,'all')/numel(predicted_labels);
+actual_accuracy = mean(1-accuracy_eeg_fold);
 
 data_set = balanced_eeg_data(:,1:4);
 
@@ -503,13 +514,13 @@ permuted_accuracy = zeros(1,num_permutations);
 for k = 1:num_permutations
     % Shuffle the true labels and train classifier when labels no longer has a true connection to the data
     shuffled_true = true_labels(randperm(length(true_labels)));
-    perm_classifier = fitcsvm(data_set, shuffled_true,"KernelFunction","rbf"); % SVM
+    perm_classifier = fitcsvm(data_set, shuffled_true,"KernelFunction","rbf","CrossVal","on","KFold",5); % SVM
 
-    % Predict with permutation classifier
-    perm_labels = predict(perm_classifier, data_set);
+    % CV accuracy
+    accuracy_shuffled = kfoldLoss(perm_classifier, 'Mode', 'individual', 'LossFun', 'classiferror');
 
     % Calculate accuracy for classifier with shuffled labels
-    permuted_accuracy(k) = sum(shuffled_true == perm_labels,'all')/numel(perm_labels);
+    permuted_accuracy(k) = mean(1-accuracy_shuffled);
 end
 
 % P value is the fraction of times that the classifier behaved better in random enviorment 
@@ -576,7 +587,7 @@ confusionchart(emg_confusion_matrix)
 
 % Statistical tests
 %------------------------------------------------------------------------------------------------
-% Permutation test (shuffle predicted labels)
+% Permutation test 1 (shuffle predicted labels)
 true_labels = balanced_emg_data(:,end);
 predicted_labels = predicted;
 
@@ -604,12 +615,11 @@ else
     disp('Classifier performance is not statistically significant. Null hypothesis is not rejected.');
 end
 %------------------------------------------------------------------------------------------------
-% Permutation test (shuffle true labels)
+% Permutation test 2 (shuffle true labels)
 true_labels = balanced_emg_data(:,end);
-predicted_labels = predicted;
 
 % Calculate accuracy for original classifier
-actual_accuracy = sum(true_labels == predicted_labels,'all')/numel(predicted_labels);
+actual_accuracy = mean(1-accuracy_emg_fold);
 
 data_set = balanced_emg_data(:,1:10);
 
@@ -618,13 +628,13 @@ permuted_accuracy = zeros(1,num_permutations);
 for k = 1:num_permutations
     % Shuffle the true labels and train classifier when labels no longer has a true connection to the data
     shuffled_true = true_labels(randperm(length(true_labels)));
-    perm_classifier = fitcdiscr(data_set, shuffled_true,"DiscrimType","linear"); % LDA
+    perm_classifier = fitcdiscr(data_set, shuffled_true,"DiscrimType","linear","CrossVal","on","KFold",5); % LDA
 
-    % Predict with permutation classifier
-    perm_labels = predict(perm_classifier, data_set);
+    % CV accuracy
+    accuracy_shuffled = kfoldLoss(emg_classifier, 'Mode', 'individual', 'LossFun', 'classiferror');
 
     % Calculate accuracy for classifier with shuffled labels
-    permuted_accuracy(k) = sum(shuffled_true == perm_labels,'all')/numel(perm_labels);
+    permuted_accuracy(k) = mean(1-accuracy_shuffled);
 end
 
 % P value is the fraction of times that the classifier behaved better in random enviorment 
