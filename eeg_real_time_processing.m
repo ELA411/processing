@@ -34,6 +34,7 @@ eeg_data = filter(n_eeg,d_eeg,eeg_data);
 eeg_data = notchFilt_50_eeg(eeg_data);
 eeg_data = notchFilt_100_eeg(eeg_data);
 
+%{
 % Remove artifacts from EEG using wavelet enhanced ICA, W-ICA
 % add 'verbose', 'off' in fastica
 [wIC,A,~,~] = wICA(transpose(eeg_data));
@@ -41,6 +42,7 @@ eeg_data = notchFilt_100_eeg(eeg_data);
 artifacts = transpose(A*wIC);
 % Subtract artifacts from original signal to get "artifact free" signal
 eeg_data = eeg_data - artifacts;
+%}
 
 % CSP filter data
 eeg_data = transpose(W'*transpose(eeg_data));

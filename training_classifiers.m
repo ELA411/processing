@@ -33,9 +33,11 @@ data_lost = 0;
 last_last_id = raw_eeg_data(1,6);
 last_id = raw_eeg_data(2,6);
 for i = 3:length(raw_eeg_data)
+    % EEG samples are sent two at a time with the same package ID (diplicates)
     if (raw_eeg_data(i,6) ~= last_id) && (last_id ~= last_last_id) % Duplicate half lost
         data_lost = data_lost + 1;
     elseif raw_eeg_data(i,6) == last_id % Duplicate
+    % EEG package ID goes from 100 to 200
     elseif raw_eeg_data(i,6) == 100 + mod((last_id + 1) - 100, 100) % Next package ID is previous + 1
     else
         data_lost = data_lost + 2; % Package ID skipped, a duplicate pair is lost
@@ -153,7 +155,7 @@ for k = 1:2
     filtered_eeg_data = notchFilt(filtered_eeg_data); 
 end
 
-
+%{
 % Remove artifacts from EEG using wavelet enhanced ICA, W-ICA
 % add 'verbose', 'off' in fastica
 [wIC,A,~,~] = wICA(transpose(filtered_eeg_data));
@@ -161,7 +163,7 @@ end
 artifacts = transpose(A*wIC);
 % Subtract artifacts from original signal to get "artifact free" signal
 filtered_eeg_data = filtered_eeg_data - artifacts;
-
+%}
 
 % CSP
 [row_size, ~] = size(filtered_eeg_data);
@@ -294,40 +296,6 @@ overlap = 0.050;                            % window overlap s
 %------------------------------------------------------------------------------------------------
 % EEG
 
-% CSP
-%{
-% Perform CSP on all windows individually
-[row_size, col_size] = size(eeg_1);
-[num_rows, ~] = size(filtered_eeg_data);
-eeg_features = zeros(num_rows, 5); % Will exceed this number of rows
-eeg_index = 1;
-for i=1:col_size
-    % Gather all the channels of one window so that CSP can be applied
-    window_all_channels = [eeg_1(:,i) eeg_2(:,i) eeg_3(:,i) eeg_4(:,i)];
-
-    label_1 = find(eeg_labels(:,i) == 1); % Find all indicies that belong to class 1
-    class_0_data = window_all_channels(~ismember(1:row_size,label_1), :); % All indicies except the ones that belong to class 1 thus belong to class 0
-    class_1_data = window_all_channels(label_1, :); % Class 1
-
-    % Do not do CSP if window only contains one class
-    if ~isempty(class_0_data) && ~isempty(class_1_data)
-        [W,l,A] = csp(transpose(class_0_data),transpose(class_1_data));
-        class_0_data_csp = W'*transpose(class_0_data);
-        class_1_data_csp = W'*transpose(class_1_data);
-
-        class_0_data_csp_labels = [transpose(class_0_data_csp) zeros(row_size-numel(label_1),1)];
-        class_1_data_csp_labels = [transpose(class_1_data_csp) ones(numel(label_1),1)];
-
-        eeg_features(eeg_index:eeg_index+row_size-1,:) = [class_0_data_csp_labels; class_1_data_csp_labels];
-    % If window only contains one class, then simply insert the window
-    else
-        eeg_features(eeg_index:eeg_index+row_size-1,:) = [window_all_channels eeg_labels(:,i)];
-    end
-    % increment index
-    eeg_index = eeg_index + row_size;
-end
-%}
-
 % Channel 1
 % Extract features from each window
 [~, col_size] = size(eeg_1);
@@ -446,9 +414,15 @@ emg_features = [emg_1_features emg_2_features emg_label_window];
 [smote_data, smote_label, ~, ~] = smote(eeg_features(:, 1:4),[], 5, 'Class', eeg_features(:,end));
 balanced_eeg_data = [smote_data smote_label];
 
+% 80 train 20 test
+cv = cvpartition(size(balanced_eeg_data,1),'HoldOut',0.2);
+idx = cv.test;
+balanced_eeg_data_train = balanced_eeg_data(~idx,:);
+balanced_eeg_data_test = balanced_eeg_data(idx,:);
+
 % Train classifier using 5 fold cross validation
 % kernelscale has major impact and alters how the loss functions work
-eeg_classifier = fitcsvm(balanced_eeg_data(:,1:4), balanced_eeg_data(:,end),"KernelFunction","rbf","CrossVal","on","KFold",5); % RBF SVM
+eeg_classifier = fitcsvm(balanced_eeg_data_train(:,1:4), balanced_eeg_data_train(:,end),"KernelFunction","rbf","CrossVal","on","KFold",5); % RBF SVM
 save("trained_classifiers\eeg_classifier.mat","eeg_classifier")
 
 fprintf("=======================================================================================\n")
@@ -466,15 +440,16 @@ disp(['SVM 5th fold accuracy : ', num2str((1-accuracy_eeg_fold(5))*100, formatSp
 disp(['SVM average accuracy : ', num2str((mean(1-accuracy_eeg_fold))*100, formatSpec), '% (+-', num2str(std(1-accuracy_eeg_fold)*100, formatSpec), '%)']);
 
 % Confusion matrix
-predicted = predict(eeg_classifier.Trained{1}, balanced_eeg_data(:,1:4));
-eeg_confusion_matrix = confusionmat(balanced_eeg_data(:,end), predicted);
+% Predict on test data
+predicted = predict(eeg_classifier.Trained{1}, balanced_eeg_data_test(:,1:4));
+eeg_confusion_matrix = confusionmat(balanced_eeg_data_test(:,end), predicted);
 figure
 confusionchart(eeg_confusion_matrix)
 
 % Statistical tests
 %------------------------------------------------------------------------------------------------
 % Permutation test 1 (shuffle predicted labels)
-true_labels = balanced_eeg_data(:,end);
+true_labels = balanced_eeg_data_test(:,end);
 predicted_labels = predicted;
 
 % Calculate accuracy for original classifier
@@ -502,12 +477,11 @@ else
 end
 %------------------------------------------------------------------------------------------------
 % Permutation test 2 (shuffle true labels)
-true_labels = balanced_eeg_data(:,end);
+true_labels = balanced_eeg_data_train(:,end);
+data_set = balanced_eeg_data_train(:,1:4);
 
 % Calculate accuracy for original classifier
 actual_accuracy = mean(1-accuracy_eeg_fold);
-
-data_set = balanced_eeg_data(:,1:4);
 
 num_permutations = 10000;
 permuted_accuracy = zeros(1,num_permutations);
@@ -535,6 +509,10 @@ else
 end
 %------------------------------------------------------------------------------------------------
 % Binomial test
+true_labels = balanced_eeg_data_test(:,end);
+predicted_labels = predicted;
+
+% Find number of successes k and number of independent trials n
 num_trials = numel(true_labels);  % Number of trials
 num_success = sum(true_labels == predicted_labels);  % Number of successful predictions
 
@@ -561,9 +539,15 @@ fprintf("=======================================================================
 [smote_data, smote_label, ~, ~] = smote(emg_features(:, 1:10),[], 5, 'Class', emg_features(:,end));
 balanced_emg_data = [smote_data smote_label];
 
+% 80 train 20 test
+cv = cvpartition(size(balanced_emg_data,1),'HoldOut',0.2);
+idx = cv.test;
+balanced_emg_data_train = balanced_emg_data(~idx,:);
+balanced_emg_data_test = balanced_emg_data(idx,:);
+
 % Train classifier using 5 fold cross validation
 % CHANGED TO 'pseudolinear' from 'linear' because one class had zero variance
-emg_classifier = fitcdiscr(balanced_emg_data(:,1:10), balanced_emg_data(:,end),"DiscrimType","pseudolinear","CrossVal","on","KFold",5); % LDA
+emg_classifier = fitcdiscr(balanced_emg_data_train(:,1:10), balanced_emg_data_train(:,end),"DiscrimType","pseudolinear","CrossVal","on","KFold",5); % LDA
 save("trained_classifiers\emg_classifier.mat","emg_classifier");
 
 fprintf("=======================================================================================\n")
@@ -581,15 +565,16 @@ disp(['LDA 5th fold accuracy : ', num2str((1-accuracy_emg_fold(5))*100, formatSp
 disp(['LDA average accuracy : ', num2str((mean(1-accuracy_emg_fold))*100, formatSpec), '% (+-', num2str(std(1-accuracy_emg_fold)*100, formatSpec), '%)']);
 
 % Confusion matrix
-predicted = predict(emg_classifier.Trained{1}, balanced_emg_data(:,1:10));
-emg_confusion_matrix = confusionmat(balanced_emg_data(:,end), predicted);
+% Predict on test set
+predicted = predict(emg_classifier.Trained{1}, balanced_emg_data_test(:,1:10));
+emg_confusion_matrix = confusionmat(balanced_emg_data_test(:,end), predicted);
 figure
 confusionchart(emg_confusion_matrix)
 
 % Statistical tests
 %------------------------------------------------------------------------------------------------
 % Permutation test 1 (shuffle predicted labels)
-true_labels = balanced_emg_data(:,end);
+true_labels = balanced_emg_data_test(:,end);
 predicted_labels = predicted;
 
 % Calculate accuracy for original classifier
@@ -617,12 +602,11 @@ else
 end
 %------------------------------------------------------------------------------------------------
 % Permutation test 2 (shuffle true labels)
-true_labels = balanced_emg_data(:,end);
+true_labels = balanced_emg_data_train(:,end);
+data_set = balanced_emg_data_train(:,1:10);
 
 % Calculate accuracy for original classifier
 actual_accuracy = mean(1-accuracy_emg_fold);
-
-data_set = balanced_emg_data(:,1:10);
 
 num_permutations = 10000;
 permuted_accuracy = zeros(1,num_permutations);
