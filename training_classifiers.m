@@ -21,9 +21,9 @@
 clear all
 close all
 %% Load data
-raw_eeg_data = load("data_sets\eeg_2023-12-16.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
+raw_eeg_data = load("data_sets\EEG_10.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
 eeg_fs=200; % EEG sample rate
-raw_emg_data = load("data_sets\emg_2023-12-16.txt"); % EMG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
+raw_emg_data = load("data_sets\EMG_10.txt"); % EMG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
 emg_fs=1000; % EMG sample rate
 %% Display data lost
 %------------------------------------------------------------------------------------------------
