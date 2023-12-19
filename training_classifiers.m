@@ -139,7 +139,7 @@ filtered_eeg_data = raw_eeg_data(:,1:4) - s_filt_2;
 
 % Remove baseline wandering and DC offset
 % 4th order Butterworth highpass filter 0.1hz cut off frequency.
-[n,d] = butter(4,(0.1)/(eeg_fs/2),"high");
+[n,d] = butter(4,[0.1 99]/(eeg_fs/2),"bandpass");
 filtered_eeg_data = filter(n,d,raw_eeg_data(:,1:4));
 
 % Removal of 50Hz noise and all of it's harmonics up to 100Hz. 
@@ -175,7 +175,7 @@ class_1_data = filtered_eeg_data(label_1, :); % Class 1
 % Save W matrix for real time
 save("saved_variables\W_matrix.mat","W");
 % CSP filter data
-filtered_eeg_data = transpose(W'*transpose(filtered_eeg_data));
+%filtered_eeg_data = transpose(W'*transpose(filtered_eeg_data));
 
 
 % 1. 2. 3. 4. channel 1,2,3,4
@@ -279,61 +279,32 @@ ylabel(EMG_plot_handle,'Voltage (v)')
 % Window EEG signal into 250ms windows with 50ms overlap
 window_size = 0.250;                        % window size s
 overlap = 0.050;                            % window overlap s
-[eeg_1, ~] = buffer(filtered_eeg_data(:,1),window_size*eeg_fs, overlap*eeg_fs, 'nodelay');
-[eeg_2, ~] = buffer(filtered_eeg_data(:,2),window_size*eeg_fs, overlap*eeg_fs, 'nodelay');
-[eeg_3, ~] = buffer(filtered_eeg_data(:,3),window_size*eeg_fs, overlap*eeg_fs, 'nodelay');
-[eeg_4, ~] = buffer(filtered_eeg_data(:,4),window_size*eeg_fs, overlap*eeg_fs, 'nodelay');
-[eeg_label, ~] = buffer(filtered_eeg_data(:,5),window_size*eeg_fs, overlap*eeg_fs, 'nodelay');
+[eeg_1, ~] = buffer(filtered_eeg_data(:,1),window_size*eeg_fs, overlap*eeg_fs, 'nodelay'); % Channel 1
+[eeg_2, ~] = buffer(filtered_eeg_data(:,2),window_size*eeg_fs, overlap*eeg_fs, 'nodelay'); % Channel 2
+[eeg_3, ~] = buffer(filtered_eeg_data(:,3),window_size*eeg_fs, overlap*eeg_fs, 'nodelay'); % Channel 3
+[eeg_4, ~] = buffer(filtered_eeg_data(:,4),window_size*eeg_fs, overlap*eeg_fs, 'nodelay'); % Channel 4
+[eeg_label, ~] = buffer(filtered_eeg_data(:,5),window_size*eeg_fs, overlap*eeg_fs, 'nodelay'); % Labels
 %------------------------------------------------------------------------------------------------
 % EMG
 % Window EMG signal into 250ms windows with 50ms overlap
 window_size = 0.250;                        % window size s
 overlap = 0.050;                            % window overlap s
-[emg_1, ~] = buffer(filtered_emg_data(:,1),window_size*emg_fs, overlap*emg_fs, "nodelay");
-[emg_2, ~] = buffer(filtered_emg_data(:,2),window_size*emg_fs, overlap*emg_fs, "nodelay");
-[emg_label, ~] = buffer(filtered_emg_data(:,3),window_size*emg_fs, overlap*emg_fs, "nodelay");
+[emg_1, ~] = buffer(filtered_emg_data(:,1),window_size*emg_fs, overlap*emg_fs, "nodelay"); % Channel 1
+[emg_2, ~] = buffer(filtered_emg_data(:,2),window_size*emg_fs, overlap*emg_fs, "nodelay"); % Channel 2
+[emg_label, ~] = buffer(filtered_emg_data(:,3),window_size*emg_fs, overlap*emg_fs, "nodelay"); % Labels
 %% Feature extraction
 %------------------------------------------------------------------------------------------------
 % EEG
 
-% Channel 1
-% Extract features from each window
+% Extract features from each window and channel
 [~, col_size] = size(eeg_1);
-eeg_1_features = zeros(col_size, 1); % Create matrix containing all extracted features from each window beforehand
+eeg_1_features = zeros(col_size, 4); % Create matrix containing all extracted features from each window beforehand
 for i=1:col_size
-    log_var = log(var(eeg_1(:,i)));
+    eeg_channels_window = [eeg_1(:,i), eeg_2(:,i), eeg_3(:,i), eeg_4(:,i)]; % Window with all channels
+    csp_eeg = transpose(W'*transpose(eeg_channels_window)); % CSP filter window
+    log_pow = log(bandpower(csp_eeg,eeg_fs,[0 eeg_fs/2])); % Log power
 
-    eeg_1_features(i,:) = [log_var];
-end
-
-% Channel 2
-% Extract features from each window
-[~, col_size] = size(eeg_2);
-eeg_2_features = zeros(col_size, 1); % Create matrix containing all extracted features from each window beforehand
-for i=1:col_size
-    log_var = log(var(eeg_2(:,i)));
-
-    eeg_2_features(i,:) = [log_var];
-end
-
-% Channel 3
-% Extract features from each window
-[~, col_size] = size(eeg_3);
-eeg_3_features = zeros(col_size, 1); % Create matrix containing all extracted features from each window beforehand
-for i=1:col_size
-    log_var = log(var(eeg_3(:,i)));
-
-    eeg_3_features(i,:) = [log_var];
-end
-
-% Channel 4
-% Extract features from each window
-[~, col_size] = size(eeg_4);
-eeg_4_features = zeros(col_size, 1); % Create matrix containing all extracted features from each window beforehand
-for i=1:col_size
-    log_var = log(var(eeg_4(:,i)));
-
-    eeg_4_features(i,:) = [log_var];
+    eeg_1_features(i,:) = [log_pow];
 end
 
 % Labels
@@ -349,7 +320,7 @@ end
 % 3 channel 3 features
 % 4 channel 4 features
 % 5 labels
-eeg_features = [eeg_1_features eeg_2_features eeg_3_features eeg_4_features eeg_label_window];
+eeg_features = [eeg_1_features eeg_label_window];
 %------------------------------------------------------------------------------------------------
 % EMG
 
@@ -411,7 +382,7 @@ emg_features = [emg_1_features emg_2_features emg_label_window];
 %------------------------------------------------------------------------------------------------
 % EEG
 % Fix class imbalance with Synthetic Minority Over-sampling Technique (SMOTE)
-[smote_data, smote_label, ~, ~] = smote(eeg_features(:, 1:4),[], 5, 'Class', eeg_features(:,end));
+[smote_data, smote_label, ~, ~] = smote(eeg_features(:, 1:end-1),[], 5, 'Class', eeg_features(:,end));
 balanced_eeg_data = [smote_data smote_label];
 
 % 80 train 20 test
@@ -422,7 +393,7 @@ balanced_eeg_data_test = balanced_eeg_data(idx,:);
 
 % Train classifier using 5 fold cross validation
 % kernelscale has major impact and alters how the loss functions work
-eeg_classifier = fitcsvm(balanced_eeg_data_train(:,1:4), balanced_eeg_data_train(:,end),"KernelFunction","rbf","CrossVal","on","KFold",5); % RBF SVM
+eeg_classifier = fitcsvm(balanced_eeg_data_train(:,1:end-1), balanced_eeg_data_train(:,end),"KernelFunction","rbf","CrossVal","on","KFold",5); % RBF SVM
 save("trained_classifiers\eeg_classifier.mat","eeg_classifier")
 
 fprintf("=======================================================================================\n")
@@ -441,7 +412,7 @@ disp(['SVM average accuracy : ', num2str((mean(1-accuracy_eeg_fold))*100, format
 
 % Confusion matrix
 % Predict on test data
-predicted = predict(eeg_classifier.Trained{1}, balanced_eeg_data_test(:,1:4));
+predicted = predict(eeg_classifier.Trained{1}, balanced_eeg_data_test(:,1:end-1));
 eeg_confusion_matrix = confusionmat(balanced_eeg_data_test(:,end), predicted);
 figure
 confusionchart(eeg_confusion_matrix)
@@ -478,7 +449,7 @@ end
 %------------------------------------------------------------------------------------------------
 % Permutation test 2 (shuffle true labels)
 true_labels = balanced_eeg_data_train(:,end);
-data_set = balanced_eeg_data_train(:,1:4);
+data_set = balanced_eeg_data_train(:,1:end-1);
 
 % Calculate accuracy for original classifier
 actual_accuracy = mean(1-accuracy_eeg_fold);
@@ -536,7 +507,7 @@ fprintf("=======================================================================
 % EMG
 %------------------------------------------------------------------------------------------------
 % Fix class imbalance with Synthetic Minority Over-sampling Technique (SMOTE)
-[smote_data, smote_label, ~, ~] = smote(emg_features(:, 1:10),[], 5, 'Class', emg_features(:,end));
+[smote_data, smote_label, ~, ~] = smote(emg_features(:, 1:end-1),[], 5, 'Class', emg_features(:,end));
 balanced_emg_data = [smote_data smote_label];
 
 % 80 train 20 test
@@ -547,7 +518,7 @@ balanced_emg_data_test = balanced_emg_data(idx,:);
 
 % Train classifier using 5 fold cross validation
 % CHANGED TO 'pseudolinear' from 'linear' because one class had zero variance
-emg_classifier = fitcdiscr(balanced_emg_data_train(:,1:10), balanced_emg_data_train(:,end),"DiscrimType","pseudolinear","CrossVal","on","KFold",5); % LDA
+emg_classifier = fitcdiscr(balanced_emg_data_train(:,1:end-1), balanced_emg_data_train(:,end),"DiscrimType","pseudolinear","CrossVal","on","KFold",5); % LDA
 save("trained_classifiers\emg_classifier.mat","emg_classifier");
 
 fprintf("=======================================================================================\n")
@@ -566,7 +537,7 @@ disp(['LDA average accuracy : ', num2str((mean(1-accuracy_emg_fold))*100, format
 
 % Confusion matrix
 % Predict on test set
-predicted = predict(emg_classifier.Trained{1}, balanced_emg_data_test(:,1:10));
+predicted = predict(emg_classifier.Trained{1}, balanced_emg_data_test(:,1:end-1));
 emg_confusion_matrix = confusionmat(balanced_emg_data_test(:,end), predicted);
 figure
 confusionchart(emg_confusion_matrix)
@@ -603,7 +574,7 @@ end
 %------------------------------------------------------------------------------------------------
 % Permutation test 2 (shuffle true labels)
 true_labels = balanced_emg_data_train(:,end);
-data_set = balanced_emg_data_train(:,1:10);
+data_set = balanced_emg_data_train(:,1:end-1);
 
 % Calculate accuracy for original classifier
 actual_accuracy = mean(1-accuracy_emg_fold);

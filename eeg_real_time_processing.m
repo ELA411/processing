@@ -23,7 +23,7 @@
 % Statistics and Machine Learning Toolbox: https://se.mathworks.com/products/statistics.html
 %========================================================================================================
 
-function [eeg_label] = eeg_real_time_processing(eeg_data, W, eeg_classifier, n_eeg, d_eeg, notchFilt_50_eeg, notchFilt_100_eeg)
+function [eeg_label] = eeg_real_time_processing(eeg_data, eeg_fs, W, eeg_classifier, n_eeg, d_eeg, notchFilt_50_eeg, notchFilt_100_eeg)
 
 %--------------------------------------------------------------------------------------------------------
 % EEG Preprocessing
@@ -50,7 +50,7 @@ eeg_data = transpose(W'*transpose(eeg_data));
 
 %--------------------------------------------------------------------------------------------------------
 % EEG Feature Extraction
-eeg_data = log(var(eeg_data)); % Log variance
+eeg_data = log(bandpower(eeg_data,eeg_fs,[0 eeg_fs/2])); % Log band power
 %--------------------------------------------------------------------------------------------------------
 
 %--------------------------------------------------------------------------------------------------------

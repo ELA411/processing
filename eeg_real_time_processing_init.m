@@ -22,7 +22,7 @@ function [n_eeg, d_eeg, notchFilt_50_eeg, notchFilt_100_eeg] = eeg_real_time_pro
 % EEG
 
 % 4th order Butterworth highpass filter 0.1hz cut off frequency.
-[n_eeg,d_eeg] = butter(4,(0.1)/(eeg_fs/2),"high");
+[n_eeg,d_eeg] = butter(4,[0.1 99]/(eeg_fs/2),"bandpass");
 
 % 4th order IIR notch filter with quality factor 30 and 1 dB passband ripple
 fo = 4;     % Filter order.
