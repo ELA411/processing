@@ -21,38 +21,38 @@
 clear all
 close all
 %% Load data
-raw_eeg_data = load("data_sets\EEG_10.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
-eeg_fs=200; % EEG sample rate
+raw_eeg_data = load("data_sets\EEG_real_closing_new_location.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
+eeg_fs = 200; % EEG sample rate
 raw_emg_data = load("data_sets\EMG_10.txt"); % EMG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
-emg_fs=1000; % EMG sample rate
+emg_fs = 1000; % EMG sample rate
 %% Display data lost
 %------------------------------------------------------------------------------------------------
 % EEG
 fprintf("=======================================================================================\n")
 data_lost = 0;
-last_last_id = raw_eeg_data(1,6);
-last_id = raw_eeg_data(2,6);
-for i = 3:length(raw_eeg_data)
+last_last_id = raw_eeg_data(1, 6);
+last_id = raw_eeg_data(2, 6);
+for package = 3:length(raw_eeg_data)
     % EEG samples are sent two at a time with the same package ID (diplicates)
-    if (raw_eeg_data(i,6) ~= last_id) && (last_id ~= last_last_id) % Duplicate half lost
+    if (raw_eeg_data(package, 6) ~= last_id) && (last_id ~= last_last_id) % Duplicate half lost
         data_lost = data_lost + 1;
-    elseif raw_eeg_data(i,6) == last_id % Duplicate
+    elseif raw_eeg_data(package, 6) == last_id % Duplicate
     % EEG package ID goes from 100 to 200
-    elseif raw_eeg_data(i,6) == 100 + mod((last_id + 1) - 100, 100) % Next package ID is previous + 1
+    elseif raw_eeg_data(package, 6) == 100 + mod((last_id + 1) - 100, 100) % Next package ID is previous + 1
     else
         data_lost = data_lost + 2; % Package ID skipped, a duplicate pair is lost
     end
     last_last_id = last_id;
-    last_id = raw_eeg_data(i,6);
+    last_id = raw_eeg_data(package, 6);
 end
 disp(['EEG Data lost: ', num2str(data_lost)]);
 %------------------------------------------------------------------------------------------------
 % EMG
 data_lost = 0;
-for i = 2:length(raw_emg_data)
+for package = 2:length(raw_emg_data)
     % If next package doesn't have last package ID + 1, then a package has been lost
     % EMG package ID is mod 1000
-    if raw_emg_data(i,4) ~= mod(raw_emg_data(i-1,4) + 1, 1000)
+    if raw_emg_data(package, 4) ~= mod(raw_emg_data(package-1, 4) + 1, 1000)
         data_lost = data_lost + 1;
     end
 end
@@ -149,8 +149,8 @@ fo = 4;     % Filter order.
 cf = 50/(eeg_fs/2); % Center frequency, value has to be between 0 and 1, where 1 is pi which is the Nyquist frequency which for our signal is Fs/2 = 500Hz.
 qf = 30;   % Quality factor.
 pbr = 1;   % Passband ripple, dB.
-for k = 1:2
-    notchSpecs  = fdesign.notch('N,F0,Q,Ap',fo,cf * k,qf,pbr);
+for harmonic = 1:2
+    notchSpecs  = fdesign.notch('N,F0,Q,Ap',fo,cf * harmonic,qf,pbr);
     notchFilt = design(notchSpecs,'IIR','SystemObject',true);
     filtered_eeg_data = notchFilt(filtered_eeg_data); 
 end
@@ -174,9 +174,7 @@ class_1_data = filtered_eeg_data(label_1, :); % Class 1
 [W,~,~] = csp(transpose(class_0_data),transpose(class_1_data));
 % Save W matrix for real time
 save("saved_variables\W_matrix.mat","W");
-% CSP filter data
-%filtered_eeg_data = transpose(W'*transpose(filtered_eeg_data));
-
+% CSP filtering is applied to each window individually later
 
 % 1. 2. 3. 4. channel 1,2,3,4
 % 5. labels
@@ -237,8 +235,8 @@ fo = 4;     % Filter order.
 cf = 50/(emg_fs/2); % Center frequency, value has to be between 0 and 1, where 1 is pi which is the Nyquist frequency which for our signal is Fs/2 = 500Hz.
 qf = 30;   % Quality factor.
 pbr = 1;   % Passband ripple, dB.
-for k = 1:3
-    notchSpecs  = fdesign.notch('N,F0,Q,Ap',fo,cf * k,qf,pbr);
+for harmonic = 1:3
+    notchSpecs  = fdesign.notch('N,F0,Q,Ap',fo,cf * harmonic,qf,pbr);
     notchFilt = design(notchSpecs,'IIR','SystemObject',true);
     filtered_emg_data = notchFilt(filtered_emg_data); 
 end
@@ -298,21 +296,40 @@ overlap = 0.050;                            % window overlap s
 
 % Extract features from each window and channel
 [~, col_size] = size(eeg_1);
-eeg_1_features = zeros(col_size, 4); % Create matrix containing all extracted features from each window beforehand
-for i=1:col_size
-    eeg_channels_window = [eeg_1(:,i), eeg_2(:,i), eeg_3(:,i), eeg_4(:,i)]; % Window with all channels
+psd_alpha = zeros(1, 4);
+psd_beta = zeros(1, 4);
+eeg_1_features = zeros(col_size, 12); % Create matrix containing all extracted features from each window beforehand
+for window=1:col_size
+    eeg_channels_window = [eeg_1(:,window), eeg_2(:,window), eeg_3(:,window), eeg_4(:,window)]; % Window with all channels
     csp_eeg = transpose(W'*transpose(eeg_channels_window)); % CSP filter window
     log_pow = log(bandpower(csp_eeg,eeg_fs,[0 eeg_fs/2])); % Log power
 
-    eeg_1_features(i,:) = [log_pow];
+    % extract PSD from each window
+    for channel=1:4
+        % Compute PSD using pwelch
+        nfft = 2^nextpow2(window_size*eeg_fs);  % default
+        [psd, freq] = pwelch(eeg_channels_window(:,channel), window_size*eeg_fs, overlap*eeg_fs, nfft, eeg_fs);
+        
+        % Extract power within the alpha and beta bands
+        alpha_band = [7, 13];
+        beta_band = [12 30];
+        % Extract power in alpha band
+        alpha_idx = find(freq >= alpha_band(1) & freq <= alpha_band(2));
+        psd_alpha(channel) = var(psd(alpha_idx));
+        % Extract power in beta band
+        beta_idx = find(freq >= beta_band(1) & freq <= beta_band(2));
+        psd_beta(channel) = var(psd(beta_idx));
+    end
+
+    eeg_1_features(window,:) = [log_pow, psd_alpha, psd_beta];
 end
 
 % Labels
 % Labels for each window is calculated as the majority class of that window
 [~, col_size] = size(eeg_label);
 eeg_label_window = zeros(col_size, 1);
-for i=1:col_size
-    eeg_label_window(i,:) = round(mean(eeg_label(:,i)));
+for window=1:col_size
+    eeg_label_window(window,:) = round(mean(eeg_label(:,window)));
 end
 
 % 1 channel 1 features
@@ -332,36 +349,36 @@ eeg_features = [eeg_1_features eeg_label_window];
 % Extract features from each window
 [~, col_size] = size(emg_1);
 emg_1_features = zeros(col_size, 5); % Create matrix containing all extracted features from each window beforehand
-for i=1:col_size
-    f_mav = jfemg('mav', emg_1(:,i)); % Mean absolut value
-    f_wl = jfemg('wl', emg_1(:,i)); % Waveform length
-    f_zc = jfemg('zc', emg_1(:,i)); % Zero crossing
-    f_ssc = jfemg('ssc', emg_1(:,i)); % Slope sign change
+for window=1:col_size
+    f_mav = jfemg('mav', emg_1(:,window)); % Mean absolut value
+    f_wl = jfemg('wl', emg_1(:,window)); % Waveform length
+    f_zc = jfemg('zc', emg_1(:,window)); % Zero crossing
+    f_ssc = jfemg('ssc', emg_1(:,window)); % Slope sign change
     opts.order = 1; % Defines output dimension
-    f_ar = jfemg('ar', emg_1(:,i), opts); % Auto regressive
+    f_ar = jfemg('ar', emg_1(:,window), opts); % Auto regressive
 
-    emg_1_features(i,:) = [f_mav, f_wl, f_zc, f_ssc, f_ar];
+    emg_1_features(window,:) = [f_mav, f_wl, f_zc, f_ssc, f_ar];
 end
 
 [~, col_size] = size(emg_2);
 emg_2_features = zeros(col_size, 5); % Create matrix containing all extracted features from each window beforehand
-for i=1:col_size
-    f_mav = jfemg('mav', emg_2(:,i)); % Mean absolut value
-    f_wl = jfemg('wl', emg_2(:,i)); % Waveform length
-    f_zc = jfemg('zc', emg_2(:,i)); % Zero crossing
-    f_ssc = jfemg('ssc', emg_2(:,i)); % Slope sign change
+for window=1:col_size
+    f_mav = jfemg('mav', emg_2(:,window)); % Mean absolut value
+    f_wl = jfemg('wl', emg_2(:,window)); % Waveform length
+    f_zc = jfemg('zc', emg_2(:,window)); % Zero crossing
+    f_ssc = jfemg('ssc', emg_2(:,window)); % Slope sign change
     opts.order = 1; % Defines output dimension
-    f_ar = jfemg('ar', emg_2(:,i), opts); % Auto regressive
+    f_ar = jfemg('ar', emg_2(:,window), opts); % Auto regressive
 
-    emg_2_features(i,:) = [f_mav, f_wl, f_zc, f_ssc, f_ar];
+    emg_2_features(window,:) = [f_mav, f_wl, f_zc, f_ssc, f_ar];
 end
 
 % Labels
 % Labels for each window is calculated as the majority class of that window
 [~, col_size] = size(emg_label);
 emg_label_window = zeros(col_size, 1);
-for i=1:col_size
-    emg_label_window(i,:) = round(mean(emg_label(:,i)));
+for window=1:col_size
+    emg_label_window(window,:) = round(mean(emg_label(:,window)));
 end
 
 % 1:5 channel 1 features
