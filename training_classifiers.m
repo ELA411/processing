@@ -21,7 +21,7 @@
 clear all
 close all
 %% Load data
-raw_eeg_data = load("data_sets\EEG_real_closing_new_location.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
+raw_eeg_data = load("data_sets\EEG_spam_one_side.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
 eeg_fs = 200; % EEG sample rate
 raw_emg_data = load("data_sets\EMG_10.txt"); % EMG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
 emg_fs = 1000; % EMG sample rate
@@ -298,30 +298,29 @@ overlap = 0.050;                            % window overlap s
 [~, col_size] = size(eeg_1);
 psd_alpha = zeros(1, 4);
 psd_beta = zeros(1, 4);
-eeg_1_features = zeros(col_size, 12); % Create matrix containing all extracted features from each window beforehand
+eeg_1_features = zeros(col_size, 8); % Create matrix containing all extracted features from each window beforehand
 for window=1:col_size
     eeg_channels_window = [eeg_1(:,window), eeg_2(:,window), eeg_3(:,window), eeg_4(:,window)]; % Window with all channels
     csp_eeg = transpose(W'*transpose(eeg_channels_window)); % CSP filter window
     log_pow = log(bandpower(csp_eeg,eeg_fs,[0 eeg_fs/2])); % Log power
 
-    % extract PSD from each window
+    % Extract variance of PSD of beta band from each window
     for channel=1:4
         % Compute PSD using pwelch
-        nfft = 2^nextpow2(window_size*eeg_fs);  % default
-        [psd, freq] = pwelch(eeg_channels_window(:,channel), window_size*eeg_fs, overlap*eeg_fs, nfft, eeg_fs);
+        [psd, freq] = pwelch(eeg_channels_window(:,channel), window_size*eeg_fs, overlap*eeg_fs, [], eeg_fs);
         
         % Extract power within the alpha and beta bands
-        alpha_band = [7, 13];
+        %alpha_band = [7, 13];
         beta_band = [12 30];
         % Extract power in alpha band
-        alpha_idx = find(freq >= alpha_band(1) & freq <= alpha_band(2));
-        psd_alpha(channel) = var(psd(alpha_idx));
+        %alpha_idx = find(freq >= alpha_band(1) & freq <= alpha_band(2));
+        %psd_alpha(channel) = var(psd(alpha_idx));
         % Extract power in beta band
         beta_idx = find(freq >= beta_band(1) & freq <= beta_band(2));
         psd_beta(channel) = var(psd(beta_idx));
     end
 
-    eeg_1_features(window,:) = [log_pow, psd_alpha, psd_beta];
+    eeg_1_features(window,:) = [log_pow, psd_beta];
 end
 
 % Labels
@@ -332,11 +331,9 @@ for window=1:col_size
     eeg_label_window(window,:) = round(mean(eeg_label(:,window)));
 end
 
-% 1 channel 1 features
-% 2 channel 2 features
-% 3 channel 3 features
-% 4 channel 4 features
-% 5 labels
+% 1:4 log band power of each channel
+% 5:8 variance of PSD of beta band from each channel
+% 9 labels
 eeg_features = [eeg_1_features eeg_label_window];
 %------------------------------------------------------------------------------------------------
 % EMG

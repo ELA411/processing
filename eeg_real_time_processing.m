@@ -5,6 +5,9 @@
 %========================================================================================================
 % Inputs
 % eeg_data: 1 window (250ms) of EEG data (format: matrix SxC, where S is samples and C is channels)
+% eeg_fs: EEG sampling frequency in Hz
+% window_size: EEG window size in s
+% overlap: EEG window overlap in s
 % W: the calculated CSP W matrix
 % eeg_classifier: the trained EEG classifier (cross validated model)
 % n_eeg, d_eeg: EEG butterworth highpass filter parameters
@@ -23,7 +26,7 @@
 % Statistics and Machine Learning Toolbox: https://se.mathworks.com/products/statistics.html
 %========================================================================================================
 
-function [eeg_label] = eeg_real_time_processing(eeg_data, eeg_fs, W, eeg_classifier, n_eeg, d_eeg, notchFilt_50_eeg, notchFilt_100_eeg)
+function [eeg_label] = eeg_real_time_processing(eeg_data, eeg_fs, window_size, overlap, W, eeg_classifier, n_eeg, d_eeg, notchFilt_50_eeg, notchFilt_100_eeg)
 
 %--------------------------------------------------------------------------------------------------------
 % EEG Preprocessing
@@ -50,12 +53,27 @@ eeg_data = transpose(W'*transpose(eeg_data));
 
 %--------------------------------------------------------------------------------------------------------
 % EEG Feature Extraction
-eeg_data = log(bandpower(eeg_data,eeg_fs,[0 eeg_fs/2])); % Log band power
+
+eeg_features = zeros(1, 8); % Create matrix containing all extracted features beforehand
+
+eeg_features(1, 1:4) = log(bandpower(eeg_data,eeg_fs,[0 eeg_fs/2])); % Log band power
+
+% Extract variance of PSD of beta band from each window
+for channel=1:4
+    % Compute PSD using pwelch
+    [psd, freq] = pwelch(eeg_data(:,channel), window_size*eeg_fs, overlap*eeg_fs, [], eeg_fs);
+    
+    % Extract power within the beta band
+    beta_band = [12 30];
+    % Extract power in beta band
+    beta_idx = find(freq >= beta_band(1) & freq <= beta_band(2));
+    eeg_features(4+channel) = var(psd(beta_idx));
+end
 %--------------------------------------------------------------------------------------------------------
 
 %--------------------------------------------------------------------------------------------------------
 % EEG Classification
-eeg_label = predict(eeg_classifier.Trained{1}, eeg_data);
+eeg_label = predict(eeg_classifier.Trained{1}, eeg_features);
 %--------------------------------------------------------------------------------------------------------
 
 end
