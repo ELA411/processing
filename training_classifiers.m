@@ -6,6 +6,26 @@
 % Use: Alter the search paths and files to the desired paths and files, change eeg_fs and
 % emg_fs in the "Load data" section to the sample rate of the EEG and EMG
 %========================================================================================================
+% Copyright (c) 2023 Carl Larsson
+% 
+% Permission is hereby granted, free of charge, to any person obtaining a copy
+% of this software and associated documentation files (the "Software"), to deal
+% in the Software without restriction, including without limitation the rights
+% to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+% copies of the Software, and to permit persons to whom the Software is
+% furnished to do so, subject to the following conditions:
+% 
+% The above copyright notice and this permission notice shall be included in all
+% copies or substantial portions of the Software.
+% 
+% THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+% IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+% FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+% AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+% LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+% OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+% SOFTWARE.
+%========================================================================================================
 % Dependencies
 % Matlab R2023b or later
 % Signal Processing Toolbox: https://se.mathworks.com/products/signal.html
@@ -28,6 +48,7 @@ emg_fs = 1000; % EMG sample rate
 %% Display data lost
 %------------------------------------------------------------------------------------------------
 % EEG
+
 fprintf("=======================================================================================\n")
 data_lost = 0;
 last_last_id = raw_eeg_data(1, 6);
@@ -48,6 +69,7 @@ end
 disp(['EEG Data lost: ', num2str(data_lost)]);
 %------------------------------------------------------------------------------------------------
 % EMG
+
 data_lost = 0;
 for package = 2:length(raw_emg_data)
     % If next package doesn't have last package ID + 1, then a package has been lost
@@ -60,6 +82,7 @@ disp(['EMG Data lost: ', num2str(data_lost)]);
 %% Display data quality 
 %------------------------------------------------------------------------------------------------
 % EEG
+
 fprintf("=======================================================================================\n")
 % Extract signal-to-noise (SNR), signal to noise and distortion ratio (SINAD), total harmonic distortion (THD).
 sFE = signalTimeFeatureExtractor(SampleRate=eeg_fs, SNR = true, SINAD = true, THD = true);
@@ -71,6 +94,7 @@ fprintf('\nChannel 3:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',eeg_quality(:,1,3),e
 fprintf('\nChannel 4:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',eeg_quality(:,1,4),eeg_quality(:,2,4), eeg_quality(:,3,4));
 %------------------------------------------------------------------------------------------------
 % EMG
+
 fprintf("EMG data quality")
 emg_quality = extract(sFE,raw_emg_data(:, 1:2));
 fprintf('\nChannel 1:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',emg_quality(:,1,1),emg_quality(:,2,1), emg_quality(:,3,1));
@@ -78,6 +102,7 @@ fprintf('\nChannel 2:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',emg_quality(:,1,2),e
 %% Visualize signal
 %------------------------------------------------------------------------------------------------
 % EEG
+
 % Plot all EEG channels
 figure
 EEG_plot_handle = tiledlayout(4,1);
@@ -100,6 +125,7 @@ xlabel(EEG_plot_handle,'Time (s)')
 ylabel(EEG_plot_handle,'Voltage (v)')
 %------------------------------------------------------------------------------------------------
 % EMG
+
 % Plot all EMG channels
 figure
 EMG_plot_handle = tiledlayout(2,1);
@@ -128,17 +154,8 @@ ylabel(EMG_plot_handle,'Voltage (v)')
 % CSP filtering: https://se.mathworks.com/matlabcentral/fileexchange/72204-common-spatial-patterns-csp 
 %------------------------------------------------------------------------------------------------
 
-%{
-% Median filtering of the baseline wandering which usually is of a frequency of about 0.5Hz, but can be higher with movement.
-% Baseline wandering is usually caused by respiration, electrodes(like poor contact or internal changes) and motion.
-% The values 24 and 80 is for a sampling frequency of 500Hz.
-s_filt_1=medfilt1(raw_eeg_data(:,1:4),(eeg_fs/500)*24);
-s_filt_2=medfilt1(s_filt_1,(eeg_fs/500)*80);
-filtered_eeg_data = raw_eeg_data(:,1:4) - s_filt_2;
-%}
-
 % Remove baseline wandering and DC offset
-% 4th order Butterworth highpass filter 0.1hz cut off frequency.
+% 4th order Butterworth bandpass filter, necessary since log bandpower assumes the signal has been bandpass filtered.
 [n,d] = butter(4,[0.1 99]/(eeg_fs/2),"bandpass");
 filtered_eeg_data = filter(n,d,raw_eeg_data(:,1:4));
 
@@ -274,6 +291,7 @@ ylabel(EMG_plot_handle,'Voltage (v)')
 %% Segmentation
 %------------------------------------------------------------------------------------------------
 % EEG
+
 % Window EEG signal into 250ms windows with 50ms overlap
 window_size = 0.250;                        % window size s
 overlap = 0.050;                            % window overlap s
@@ -284,6 +302,7 @@ overlap = 0.050;                            % window overlap s
 [eeg_label, ~] = buffer(filtered_eeg_data(:,5),window_size*eeg_fs, overlap*eeg_fs, 'nodelay'); % Labels
 %------------------------------------------------------------------------------------------------
 % EMG
+
 % Window EMG signal into 250ms windows with 50ms overlap
 window_size = 0.250;                        % window size s
 overlap = 0.050;                            % window overlap s
@@ -384,17 +403,14 @@ end
 emg_features = [emg_1_features emg_2_features emg_label_window];
 %% Train classifier
 %------------------------------------------------------------------------------------------------
-% Oversampling: https://se.mathworks.com/matlabcentral/fileexchange/75401-synthetic-minority-over-sampling-technique-smote
-% 
-% Save and load models: https://se.mathworks.com/matlabcentral/answers/264160-how-to-save-and-reuse-a-trained-neural-network
-% 
-% Permutation test: https://www.jmlr.org/papers/volume11/ojala10a/ojala10a.pdf
-% 
-% Binomial test: https://www.sciencedirect.com/science/article/pii/S2213158214000485
-%------------------------------------------------------------------------------------------------
+% EEG
 
 %------------------------------------------------------------------------------------------------
-% EEG
+% Oversampling: https://se.mathworks.com/matlabcentral/fileexchange/75401-synthetic-minority-over-sampling-technique-smote
+% 
+% Permutation test: https://www.jmlr.org/papers/volume11/ojala10a/ojala10a.pdf
+%------------------------------------------------------------------------------------------------
+
 % Fix class imbalance with Synthetic Minority Over-sampling Technique (SMOTE)
 [smote_data, smote_label, ~, ~] = smote(eeg_features(:, 1:end-1),[], 5, 'Class', eeg_features(:,end));
 balanced_eeg_data = [smote_data smote_label];
@@ -498,10 +514,10 @@ true_labels = balanced_eeg_data_test(:,end);
 predicted_labels = predicted;
 
 % Find number of successes k and number of independent trials n
-num_trials = numel(true_labels);  % Number of trials
-num_success = sum(true_labels == predicted_labels);  % Number of successful predictions
+num_trials = numel(true_labels);  % Number of trials n
+num_success = sum(true_labels == predicted_labels);  % Number of successful predictions k
 
-% Hypothesized probability (e.g., chance level, 0.5 for a binary classifier)
+% Hypothesized probability (chance level, 0.5)
 p_hypothesized = 0.5;
 
 % Perform binomial test
@@ -519,7 +535,13 @@ fprintf("=======================================================================
 %% Train classifier
 %------------------------------------------------------------------------------------------------
 % EMG
+
 %------------------------------------------------------------------------------------------------
+% Oversampling: https://se.mathworks.com/matlabcentral/fileexchange/75401-synthetic-minority-over-sampling-technique-smote
+% 
+% Permutation test: https://www.jmlr.org/papers/volume11/ojala10a/ojala10a.pdf
+%------------------------------------------------------------------------------------------------
+
 % Fix class imbalance with Synthetic Minority Over-sampling Technique (SMOTE)
 [smote_data, smote_label, ~, ~] = smote(emg_features(:, 1:end-1),[], 5, 'Class', emg_features(:,end));
 balanced_emg_data = [smote_data smote_label];
@@ -531,7 +553,7 @@ balanced_emg_data_train = balanced_emg_data(~idx,:);
 balanced_emg_data_test = balanced_emg_data(idx,:);
 
 % Train classifier using 5 fold cross validation
-% CHANGED TO 'pseudolinear' from 'linear' because one class had zero variance
+% CHANGED TO 'pseudolinear' from 'linear' incase one class has zero variance
 emg_classifier = fitcdiscr(balanced_emg_data_train(:,1:end-1), balanced_emg_data_train(:,end),"DiscrimType","pseudolinear","CrossVal","on","KFold",5); % LDA
 save("trained_classifiers\emg_classifier.mat","emg_classifier");
 

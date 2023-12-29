@@ -1,7 +1,27 @@
 % Author: Carl Larsson
 % Description: performs all processing of EMG data aswell as classifying the data
 % Use: run when 1 window (250ms) of EMG is available.
-% emg_real_time_processing_init needs to be run before calling this function
+% emg_real_time_processing_init needs to be run before calling this function!
+%========================================================================================================
+% Copyright (c) 2023 Carl Larsson
+% 
+% Permission is hereby granted, free of charge, to any person obtaining a copy
+% of this software and associated documentation files (the "Software"), to deal
+% in the Software without restriction, including without limitation the rights
+% to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+% copies of the Software, and to permit persons to whom the Software is
+% furnished to do so, subject to the following conditions:
+% 
+% The above copyright notice and this permission notice shall be included in all
+% copies or substantial portions of the Software.
+% 
+% THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+% IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+% FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+% AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+% LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+% OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+% SOFTWARE.
 %========================================================================================================
 % Inputs
 % emg_data: 1 window (250ms) of EMG data (format: matrix SxC, where S is samples and C is channels)
@@ -24,7 +44,7 @@ function [emg_label] = emg_real_time_processing(emg_data, emg_classifier, n_emg,
 
 %--------------------------------------------------------------------------------------------------------
 % EMG Preprocessing
-% Removal of the 0Hz(the DC offset) and high frequency noise.
+% Removal of the 0Hz(the DC offset), baseline wandering and high frequency noise.
 emg_data = filter(n_emg,d_emg,emg_data);
 
 % Removal of 50Hz noise and all of it's harmonics up to 150Hz. 

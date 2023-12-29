@@ -1,7 +1,27 @@
 % Author: Carl Larsson
 % Description: performs all processing of EEG data aswell as classifying the data
 % Use: run when 1 window (250ms) of EEG is available.
-% eeg_real_time_processing_init needs to be run before calling this function
+% eeg_real_time_processing_init needs to be run before calling this function!
+%========================================================================================================
+% Copyright (c) 2023 Carl Larsson
+% 
+% Permission is hereby granted, free of charge, to any person obtaining a copy
+% of this software and associated documentation files (the "Software"), to deal
+% in the Software without restriction, including without limitation the rights
+% to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+% copies of the Software, and to permit persons to whom the Software is
+% furnished to do so, subject to the following conditions:
+% 
+% The above copyright notice and this permission notice shall be included in all
+% copies or substantial portions of the Software.
+% 
+% THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+% IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+% FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+% AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+% LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+% OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+% SOFTWARE.
 %========================================================================================================
 % Inputs
 % eeg_data: 1 window (250ms) of EEG data (format: matrix SxC, where S is samples and C is channels)
@@ -30,13 +50,15 @@ function [eeg_label] = eeg_real_time_processing(eeg_data, eeg_fs, window_size, o
 
 %--------------------------------------------------------------------------------------------------------
 % EEG Preprocessing
-% Remove baseline wandering and DC offset
+% Remove baseline wandering and DC offset, also the bandpass is necessary
+% since log bandpower assumes signal has been bandpass filtered
 eeg_data = filter(n_eeg,d_eeg,eeg_data);
 
 % Removal of 50Hz noise and all of it's harmonics up to 100Hz.
 eeg_data = notchFilt_50_eeg(eeg_data);
 eeg_data = notchFilt_100_eeg(eeg_data);
 
+% !!! CRASHES THE PROGRAM DURING ONLINE TRIALS !!!
 %{
 % Remove artifacts from EEG using wavelet enhanced ICA, W-ICA
 % add 'verbose', 'off' in fastica
@@ -46,13 +68,13 @@ artifacts = transpose(A*wIC);
 % Subtract artifacts from original signal to get "artifact free" signal
 eeg_data = eeg_data - artifacts;
 %}
-
-% CSP filter data
-eeg_data = transpose(W'*transpose(eeg_data));
 %--------------------------------------------------------------------------------------------------------
 
 %--------------------------------------------------------------------------------------------------------
 % EEG Feature Extraction
+
+% CSP filter data
+eeg_data = transpose(W'*transpose(eeg_data));
 
 eeg_features = zeros(1, 8); % Create matrix containing all extracted features beforehand
 
