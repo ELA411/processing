@@ -3,7 +3,7 @@
 % Author: Carl Larsson
 % Description: Performs all processing of EEG and EMG data including
 % training of classifier and evaluation of trained model
-% Use: Alter the search paths and files to the desired paths and files, change eeg_fs and
+% Use: Alter the search paths and files to the desired paths and files (for data sets) in section "Load data", change eeg_fs and
 % emg_fs in the "Load data" section to the sample rate of the EEG and EMG
 %========================================================================================================
 % Copyright (c) 2023 Carl Larsson
@@ -313,20 +313,20 @@ ylabel(EMG_plot_handle,'Voltage (v)')
 % Window EEG signal into 250ms windows with 50ms overlap
 window_size = 0.250;                        % window size s
 overlap = 0.050;                            % window overlap s
-[eeg_1, ~] = buffer(filtered_eeg_data(:,1),window_size*eeg_fs, overlap*eeg_fs, 'nodelay'); % Channel 1
-[eeg_2, ~] = buffer(filtered_eeg_data(:,2),window_size*eeg_fs, overlap*eeg_fs, 'nodelay'); % Channel 2
-[eeg_3, ~] = buffer(filtered_eeg_data(:,3),window_size*eeg_fs, overlap*eeg_fs, 'nodelay'); % Channel 3
-[eeg_4, ~] = buffer(filtered_eeg_data(:,4),window_size*eeg_fs, overlap*eeg_fs, 'nodelay'); % Channel 4
-[eeg_label, ~] = buffer(filtered_eeg_data(:,5),window_size*eeg_fs, overlap*eeg_fs, 'nodelay'); % Labels
+[eeg_1, ~] = buffer(filtered_eeg_data(:,1),window_size*eeg_fs, (overlap/2)*eeg_fs, 'nodelay'); % Channel 1
+[eeg_2, ~] = buffer(filtered_eeg_data(:,2),window_size*eeg_fs, (overlap/2)*eeg_fs, 'nodelay'); % Channel 2
+[eeg_3, ~] = buffer(filtered_eeg_data(:,3),window_size*eeg_fs, (overlap/2)*eeg_fs, 'nodelay'); % Channel 3
+[eeg_4, ~] = buffer(filtered_eeg_data(:,4),window_size*eeg_fs, (overlap/2)*eeg_fs, 'nodelay'); % Channel 4
+[eeg_label, ~] = buffer(filtered_eeg_data(:,5),window_size*eeg_fs, (overlap/2)*eeg_fs, 'nodelay'); % Labels
 %------------------------------------------------------------------------------------------------
 % EMG
 
 % Window EMG signal into 250ms windows with 50ms overlap
 window_size = 0.250;                        % window size s
 overlap = 0.050;                            % window overlap s
-[emg_1, ~] = buffer(filtered_emg_data(:,1),window_size*emg_fs, overlap*emg_fs, "nodelay"); % Channel 1
-[emg_2, ~] = buffer(filtered_emg_data(:,2),window_size*emg_fs, overlap*emg_fs, "nodelay"); % Channel 2
-[emg_label, ~] = buffer(filtered_emg_data(:,3),window_size*emg_fs, overlap*emg_fs, "nodelay"); % Labels
+[emg_1, ~] = buffer(filtered_emg_data(:,1),window_size*emg_fs, (overlap/2)*emg_fs, "nodelay"); % Channel 1
+[emg_2, ~] = buffer(filtered_emg_data(:,2),window_size*emg_fs, (overlap/2)*emg_fs, "nodelay"); % Channel 2
+[emg_label, ~] = buffer(filtered_emg_data(:,3),window_size*emg_fs, (overlap/2)*emg_fs, "nodelay"); % Labels
 %% Feature extraction
 %------------------------------------------------------------------------------------------------
 % EEG
