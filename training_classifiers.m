@@ -41,9 +41,9 @@
 clear all
 close all
 %% Load data
-raw_eeg_data = load("data_sets\EEG_spam_one_side.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
+raw_eeg_data = load("data_sets\EEG_spam_one_side.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. Each row is expected to be subsequent observations)
 eeg_fs = 200; % EEG sample rate
-raw_emg_data = load("data_sets\EMG_10.txt"); % EMG data set (expected column format: channels, labels, package ID, timestamp. each row is expected to be subsequent observations)
+raw_emg_data = load("data_sets\EMG_10.txt"); % EMG data set (expected column format: channels, labels, package ID, timestamp. Each row is expected to be subsequent observations)
 emg_fs = 1000; % EMG sample rate
 %% Display data lost
 %------------------------------------------------------------------------------------------------
@@ -92,6 +92,15 @@ fprintf('\nChannel 1:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',eeg_quality(:,1,1),e
 fprintf('\nChannel 2:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',eeg_quality(:,1,2),eeg_quality(:,2,2), eeg_quality(:,3,2));
 fprintf('\nChannel 3:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',eeg_quality(:,1,3),eeg_quality(:,2,3), eeg_quality(:,3,3));
 fprintf('\nChannel 4:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',eeg_quality(:,1,4),eeg_quality(:,2,4), eeg_quality(:,3,4));
+
+% Find period of samples for EEG
+T_eeg = 0;
+for package = 2:length(raw_eeg_data)
+    T_eeg = T_eeg + (raw_eeg_data(package, end)-raw_eeg_data(package-1, end));
+end
+T_eeg = T_eeg/length(raw_eeg_data);
+formatSpec = '%.2f';
+disp(['EEG recorded sample rate: ', num2str(1/T_eeg, formatSpec), ' Hz']);
 %------------------------------------------------------------------------------------------------
 % EMG
 
@@ -99,6 +108,15 @@ fprintf("EMG data quality")
 emg_quality = extract(sFE,raw_emg_data(:, 1:2));
 fprintf('\nChannel 1:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',emg_quality(:,1,1),emg_quality(:,2,1), emg_quality(:,3,1));
 fprintf('\nChannel 2:\nSNR:\t %f\nSINAD:\t %f\nTHD:\t %f\n',emg_quality(:,1,2),emg_quality(:,2,2), emg_quality(:,3,2));
+
+% Find period of samples for EMG
+T_emg = 0;
+for package = 2:length(raw_emg_data)
+    T_emg = T_emg + (raw_emg_data(package, end)-raw_emg_data(package-1, end));
+end
+T_emg = T_emg/length(raw_emg_data);
+formatSpec = '%.2f';
+disp(['EMG recorded sample rate: ', num2str(1/T_emg, formatSpec), ' Hz']);
 %% Visualize signal
 %------------------------------------------------------------------------------------------------
 % EEG
