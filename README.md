@@ -44,5 +44,8 @@ emg_real_time_processing.m
 ## Disclaimer
 The w-ICA part of the code is commented out because it causes a crash during online trials after a random amount of time.
 
+## License
+Distributed under the MIT license.
+
 ## Contact
 Carl Larsson - cln20001@student.mdu.se
