@@ -41,9 +41,9 @@
 clear all
 close all
 %% Load data
-raw_eeg_data = load("data_sets\EEG_spam_one_side.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. Each row is expected to be subsequent observations)
+raw_eeg_data = load("data_sets\EEG_Pontus-Left_side_cluster_50_reps_2024-01-05_181626.txt"); % EEG data set (expected column format: channels, labels, package ID, timestamp. Each row is expected to be subsequent observations)
 eeg_fs = 200; % EEG sample rate
-raw_emg_data = load("data_sets\EMG_10.txt"); % EMG data set (expected column format: channels, labels, package ID, timestamp. Each row is expected to be subsequent observations)
+raw_emg_data = load("data_sets\EMG_Pontus-Ch_1_longitude_Ch_2_transverse_2024-01-05_180125.txt"); % EMG data set (expected column format: channels, labels, package ID, timestamp. Each row is expected to be subsequent observations)
 emg_fs = 1000; % EMG sample rate
 %% Display data lost
 %------------------------------------------------------------------------------------------------
@@ -474,7 +474,7 @@ predicted_labels = predicted;
 % Calculate accuracy for original classifier
 actual_accuracy = sum(true_labels == predicted_labels,'all')/numel(predicted_labels);
 
-num_permutations = 10000;
+num_permutations = 100;
 permuted_accuracy = zeros(1,num_permutations);
 for k = 1:num_permutations
     % Shuffle predicted labels
@@ -502,7 +502,7 @@ data_set = balanced_eeg_data_train(:,1:end-1);
 % Calculate accuracy for original classifier
 actual_accuracy = mean(1-accuracy_eeg_fold);
 
-num_permutations = 10000;
+num_permutations = 100;
 permuted_accuracy = zeros(1,num_permutations);
 for k = 1:num_permutations
     % Shuffle the true labels and train classifier when labels no longer has a true connection to the data
@@ -605,7 +605,7 @@ predicted_labels = predicted;
 % Calculate accuracy for original classifier
 actual_accuracy = sum(true_labels == predicted_labels,'all')/numel(predicted_labels);
 
-num_permutations = 10000;
+num_permutations = 100;
 permuted_accuracy = zeros(1,num_permutations);
 for k = 1:num_permutations
     % Shuffle predicted labels
@@ -618,7 +618,7 @@ end
 % P value is the fraction of times that the shuffled predicted labels
 % performed better than actual predicted labels 
 p_value = (sum(permuted_accuracy >= actual_accuracy) + 1) / (num_permutations + 1);
-disp(['LDA permutation test p-value 1 :', num2str(p_value,2)])
+disp(['LDA permutation test 1 p-value :', num2str(p_value,2)])
 
 if p_value < 0.05
     disp('Classifier performance is statistically significant. Null hypothesis is rejected, the classifier performance is better than random chance.');
@@ -633,7 +633,7 @@ data_set = balanced_emg_data_train(:,1:end-1);
 % Calculate accuracy for original classifier
 actual_accuracy = mean(1-accuracy_emg_fold);
 
-num_permutations = 10000;
+num_permutations = 100;
 permuted_accuracy = zeros(1,num_permutations);
 for k = 1:num_permutations
     % Shuffle the true labels and train classifier when labels no longer has a true connection to the data
@@ -651,7 +651,7 @@ end
 % P value is the fraction of times that the classifier behaved better in random enviorment 
 % (aka fraction of time that a classifier with shuffled labels performed better than the original classifier)
 p_value = (sum(permuted_accuracy >= actual_accuracy) + 1) / (num_permutations + 1);
-disp(['LDA permutation test p-value 2 :', num2str(p_value,2)])
+disp(['LDA permutation test 2 p-value :', num2str(p_value,2)])
 
 if p_value < 0.05
     disp('Classifier performance is statistically significant. Null hypothesis is rejected, the classifier has found a true connection in the data.');
